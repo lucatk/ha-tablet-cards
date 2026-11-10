@@ -25,7 +25,7 @@ import { TabletMediaCard } from "./tablet-media-card.js";
 import { TabletAppliancesCard } from "./tablet-appliances-card.js";
 import { TabletWeatherCard } from "./tablet-weather-card.js";
 
-const VERSION = "1.9.0";
+const VERSION = "1.10.0";
 
 customElements.define("mvg-departures-card", MvgDeparturesCard);
 customElements.define("news-ticker-card", NewsTickerCard);

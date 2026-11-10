@@ -37,8 +37,10 @@ ROOMS = [
     },
     {
         "key": "kueche", "name": "Küche / Essen", "icon": "mdi:silverware-fork-knife", "area": "r2",
-        "entities": ["light.kuche_licht", "switch.shellyplus2pm_c82e18065c2c_switch_0", "light.hue_esstisch"],
-        "names": {"light.kuche_licht": "Küche", "switch.shellyplus2pm_c82e18065c2c_switch_0": "Lüftung",
+        # The fan is driven by the "Küche Lüftung Puls-Steuerung" automation via
+        # this target boolean, not by switching the Shelly relay directly.
+        "entities": ["light.kuche_licht", "input_boolean.kuche_luftung_soll", "light.hue_esstisch"],
+        "names": {"light.kuche_licht": "Küche", "input_boolean.kuche_luftung_soll": "Lüftung",
                   "light.hue_esstisch": "Esstisch"},
         "scenes": [("scene.esstisch_esstisch_relax", "Relax", "mdi:sofa-single-outline"),
                    ("scene.esstisch_esstisch_concentrate", "Konzentration", "mdi:lightbulb-on-outline"),
@@ -78,10 +80,13 @@ def top_cards():
          "card_mod": glass("ha-card { padding: 26px 30px !important; }")},
         {"type": "custom:tablet-weather-card", "entity": "weather.forecast_home", "days": 4,
          "view_layout": {"grid-area": "weather"}, "card_mod": glass()},
-        {"type": "custom:news-ticker-card", "interval_seconds": 12,
-         "sources": [{"name": "ZDFheute", "prefix": "sensor.news_zdf_"},
+        {"type": "custom:news-ticker-card", "count": 8, "title_seconds": 5, "page_seconds": 5,
+         "sources": [{"name": "Tagesschau", "prefix": "sensor.news_ts_"},
                      {"name": "SZ München", "prefix": "sensor.news_sz_"}],
-         "layout": "hero", "view_layout": {"grid-area": "news"}, "card_mod": glass()},
+         # Drop round-ups, livestreams, programme items and correspondent clips.
+         "exclude": ["news-überblick", "tagesschau", "tagesthemen", "^livestream", "^schlagzeilen",
+                     "^heute( journal|-show)?\\b", "zdfheute live", ", ARD [A-ZÄÖÜ]", "\\bzur sendung\\b"],
+         "view_layout": {"grid-area": "news"}, "card_mod": glass()},
         {"type": "custom:mvg-departures-card",
          "stops": ["de:09162:126;BUS", "de:09162:51;TRAM", "de:09162:120;UBAHN", "de:09162:70;UBAHN"],
          "limit": 4, "per_page": 2, "show_system_icons": False, "cycle_seconds": 10, "refresh_seconds": 60, "font_size": "17px",
@@ -115,13 +120,14 @@ def grid(rooms_rows, extra_cards):
         "layout_type": "custom:grid-layout",
         "layout": {
             "grid-template-columns": "repeat(20, minmax(0, 1fr))",
-            "grid-template-rows": "196px 300px 150px minmax(0, 1fr) 56px",
+            "grid-template-rows": "192px 294px 142px minmax(0, 1fr) 52px",
             "grid-template-areas": areas,
             "grid-gap": "14px",
-            # HA pads the view by the status-bar inset on the tablet (28 px); subtract it.
-            "height": "calc(100vh - var(--safe-area-inset-top, 0px) - var(--safe-area-inset-bottom, 0px)"
-                      " - max(8px, calc(18px - var(--safe-area-inset-top, 0px))) - 4px)",
-            "padding": "max(8px, calc(18px - var(--safe-area-inset-top, 0px))) 18px 0",
+            # HA pads the view by the status-bar inset (28 px on the tablet, which runs
+            # full-screen anyway); pull the grid up over it and pad all sides evenly.
+            "height": "calc(100vh - 32px)",
+            "margin-top": "calc(-1 * var(--safe-area-inset-top, 0px))",
+            "padding": "14px 18px 14px",
             "margin": "0",
         },
         "cards": top_cards() + extra_cards,
@@ -133,6 +139,8 @@ GROUP_COLOUR = {
                            "light.hue_esstisch_pendellampe_unten": "Unten"},
     "light.hue_schlafzimmer_spots": {f"light.hue_schlafzimmer_spot_{i}": f"Spot {i}" for i in range(1, 5)},
 }
+
+ICONS = {"input_boolean.kuche_luftung_soll": "mdi:fan"}
 
 def tile(entity, names, room_entities):
     if entity.startswith("media_player."):
@@ -146,6 +154,8 @@ def tile(entity, names, room_entities):
             cfg["detail"] = "color"
     if entity in names:
         cfg["name"] = names[entity]
+    if entity in ICONS:
+        cfg["icon"] = ICONS[entity]
     return cfg
 
 def room_config(room):

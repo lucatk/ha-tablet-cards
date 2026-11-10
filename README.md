@@ -29,18 +29,19 @@ Types: `UBAHN`, `SBAHN`, `TRAM`, `BUS`, `REGIONAL_BUS`, `BAHN`, `SCHIFF`.
 
 ## `custom:news-ticker-card`
 
-Rotates through headlines stored in sensors (for example from the Scrape integration). For each source, item `N` reads `<prefix>N` (title), `<prefix>N_text` (teaser) and `<prefix>N_bild` (image URL). Sources are interleaved.
+Headlines from sensors (for example from the Scrape integration). For each source, item `N` reads `<prefix>N` (title), `<prefix>N_text` (teaser) and `<prefix>N_bild` (image URL). Sources are interleaved. Each item shows image and title first; after `title_seconds` the image folds away and the teaser pages in, one view every `page_seconds`, before the next item. `exclude` drops titles matching any of the case-insensitive regexes.
 
 ```yaml
 type: custom:news-ticker-card
-layout: hero            # hero = full-width image above the text; side = small image left
-interval_seconds: 12
-count: 4
+count: 8
+title_seconds: 5
+page_seconds: 5
 sources:
-  - name: ZDFheute
-    prefix: sensor.news_zdf_
+  - name: Tagesschau
+    prefix: sensor.news_ts_
   - name: SZ München
     prefix: sensor.news_sz_
+exclude: ["news-überblick", "^livestream", ", ARD [A-ZÄÖÜ]"]
 ```
 
 ## `custom:tablet-clock-card`
@@ -93,7 +94,9 @@ Current condition (bold), temperature with today's high/low, a 4-day forecast, a
 ```yaml
 type: custom:tablet-weather-card
 entity: weather.forecast_home
-days: 4
+days: 4             # daily columns
+hours: 5            # hourly columns
+switch_seconds: 10  # alternate between days and hours
 ```
 
 ## `custom:bing-wallpaper-card`

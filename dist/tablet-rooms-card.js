@@ -174,7 +174,7 @@ export class TabletRoomsCard extends HTMLElement {
       .body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); gap: 12px; }
       .body.split { grid-template-columns: 1fr 1fr; }
       .main { min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: auto;
-        --tablet-tile-height: 132px; --tablet-media-art: 88px; }
+        --tablet-tile-height: 136px; --tablet-media-art: 88px; }
       .sec-title { font-size: 14px; line-height: 20px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
         opacity: .7; padding-left: 8px; }
       .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

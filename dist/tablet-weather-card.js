@@ -4,7 +4,9 @@
 //
 //   type: custom:tablet-weather-card
 //   entity: weather.forecast_home
-//   days: 4
+//   days: 4             daily forecast columns
+//   hours: 5            hourly forecast columns
+//   switch_seconds: 10  the forecast row alternates between days and hours
 
 import { ensureShell, esc } from "./shared.js";
 
@@ -33,7 +35,8 @@ const RADAR_MINUTES = 60;
 export class TabletWeatherCard extends HTMLElement {
   setConfig(config) {
     if (!config.entity) throw new Error("tablet-weather-card: `entity` required");
-    this._config = { days: 4, ...config };
+    this._config = { days: 4, hours: 5, switch_seconds: 10, ...config };
+    this._view = "days";
   }
 
   set hass(hass) {
@@ -52,13 +55,19 @@ export class TabletWeatherCard extends HTMLElement {
     clearInterval(this._radarTimer);
     this._loadRadar();
     this._radarTimer = setInterval(() => this._loadRadar(), 5 * 60_000);
+    clearInterval(this._viewTimer);
+    this._viewTimer = setInterval(() => {
+      this._view = this._view === "days" ? "hours" : "days";
+      this._render();
+    }, Math.max(3, Number(this._config.switch_seconds)) * 1000);
     this._render();
   }
 
   disconnectedCallback() {
     clearInterval(this._radarTimer);
-    this._unsub?.then((u) => u());
-    this._unsub = undefined;
+    clearInterval(this._viewTimer);
+    for (const u of [this._unsub, this._unsubHourly]) u?.then((f) => f());
+    this._unsub = this._unsubHourly = undefined;
   }
 
   _subscribe() {
@@ -70,6 +79,31 @@ export class TabletWeatherCard extends HTMLElement {
       },
       { type: "weather/subscribe_forecast", forecast_type: "daily", entity_id: this._config.entity },
     );
+    this._unsubHourly = this._hass.connection.subscribeMessage(
+      (msg) => {
+        this._hourly = msg.forecast ?? [];
+        this._render();
+      },
+      { type: "weather/subscribe_forecast", forecast_type: "hourly", entity_id: this._config.entity },
+    );
+  }
+
+  /** Forecast columns for the current view: days (high + low) or the next hours. */
+  _columns() {
+    if (this._view === "hours" && this._hourly?.length) {
+      const now = Date.now();
+      return this._hourly
+        .filter((h) => Date.parse(h.datetime) > now - 30 * 60_000)
+        .slice(0, Number(this._config.hours))
+        .map((h, i) => ({
+          name: i === 0 ? "Jetzt" : `${new Date(h.datetime).getHours()} Uhr`,
+          condition: h.condition, hi: h.temperature,
+        }));
+    }
+    return (this._forecast ?? []).slice(0, Number(this._config.days)).map((d, i) => ({
+      name: i === 0 ? "Heute" : new Date(d.datetime).toLocaleDateString("de-DE", { weekday: "short" }).replace(".", ""),
+      condition: d.condition, hi: d.temperature, lo: d.templow,
+    }));
   }
 
   /** Next hour of DWD radar precipitation (mm/h per 5 min) for HA's home location. */
@@ -92,7 +126,7 @@ export class TabletWeatherCard extends HTMLElement {
 
   /**
    * iOS-style next-hour precipitation chart: a smooth filled area over three
-   * dashed intensity lines (light / moderate / heavy), "Jetzt … 60 Min" axis.
+   * dashed intensity lines (light / moderate / heavy), clock times on the axis.
    */
   _rainHtml() {
     const rain = this._rain ?? [];
@@ -145,7 +179,7 @@ export class TabletWeatherCard extends HTMLElement {
             <path class="line" d="${d}"/>
           </svg>
         </div>
-        <div class="axis"><span>Jetzt</span><span>30</span><span>60 Min</span></div>
+        <div class="axis">${[0, Math.floor((rain.length - 1) / 2), rain.length - 1].map((i) => `<span>${fmt(rain[i].t)}</span>`).join("")}</div>
       </div>`;
   }
 
@@ -154,32 +188,34 @@ export class TabletWeatherCard extends HTMLElement {
     const st = this._hass.states[this._config.entity];
     const content = ensureShell(this.shadowRoot, `
       :host { display: block; height: 100%; }
-      ha-card { height: 100%; box-sizing: border-box; padding: 16px 22px 14px; color: #fff; }
+      ha-card { height: 100%; box-sizing: border-box; padding: 15px 20px; color: #fff; }
       .content { height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
-      .now { display: flex; align-items: flex-start; gap: 16px; min-width: 0; }
+      .now { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
       .cond { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-      .cond ha-icon { --mdc-icon-size: 40px; }
-      .cond-text { font-size: 22px; font-weight: 700; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .cond ha-icon { --mdc-icon-size: 34px; }
+      .cond-text { font-size: 19px; font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
       .temps { flex: none; text-align: right; }
-      .temp { font-size: 42px; font-weight: 300; line-height: 1; letter-spacing: -0.02em; }
+      .temp { font-size: 38px; font-weight: 300; line-height: 1; letter-spacing: -0.02em; }
       .hilo { display: flex; gap: 8px; justify-content: flex-end; font-size: 16px; font-weight: 500; opacity: .85;
         margin-top: 6px; --mdc-icon-size: 15px; }
       .hilo span { display: inline-flex; align-items: center; }
-      .rain { flex: none; width: 168px; }
-      .rain-label { font-size: 14px; font-weight: 700; white-space: nowrap; color: #fff; margin-bottom: 6px; }
-      .chart { position: relative; height: 40px; }
+      .rain { flex: none; width: 158px; }
+      .rain-label { font-size: 14px; line-height: 17px; font-weight: 700; white-space: nowrap; color: #fff; margin-bottom: 6px; }
+      .chart { position: relative; height: 34px; }
       .chart svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
       .grid line { stroke: rgba(255,255,255,.28); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
       .area { fill: url(#rg); }
       .line { fill: none; stroke: #8cc8ff; stroke-width: 2; vector-effect: non-scaling-stroke; }
-      .axis { display: flex; justify-content: space-between; font-size: 11px; font-weight: 500; opacity: .7; margin-top: 3px; }
+      .axis { display: flex; justify-content: space-between; font-size: 12px; line-height: 14px; font-weight: 500; opacity: .7; margin-top: 4px; }
       .days { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
-      .day { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-      .day .dname { font-size: 15px; font-weight: 500; opacity: .75; }
-      .day ha-icon { --mdc-icon-size: 30px; }
+      .days.swap { animation: swap .6s ease-out; }
+      @keyframes swap { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      .day { display: flex; flex-direction: column; align-items: center; gap: 1px; line-height: 1.15; }
+      .day .dname { font-size: 14px; font-weight: 500; opacity: .75; }
+      .day ha-icon { --mdc-icon-size: 26px; display: block; height: 26px; }
       .day .t { display: flex; gap: 8px; align-items: baseline; }
-      .day .hi { font-size: 19px; font-weight: 600; }
-      .day .lo { font-size: 17px; opacity: .55; }
+      .day .hi { font-size: 17px; font-weight: 600; }
+      .day .lo { font-size: 15px; opacity: .55; }
     `);
     if (!st) return void (content.textContent = "Wetter nicht gefunden");
     const [label, icon, color] = cond(st.state);
@@ -201,17 +237,20 @@ export class TabletWeatherCard extends HTMLElement {
         </div>
         ${this._rainHtml()}
       </div>
-      <div class="days">${days
-        .map((d, i) => {
-          const [, dIcon, dColor] = cond(d.condition);
-          return `<div class="day"><span class="dname">${esc(dayName(d.datetime, i))}</span>
+      <div class="days ${this._view}">${this._columns()
+        .map((c) => {
+          const [, dIcon, dColor] = cond(c.condition);
+          return `<div class="day"><span class="dname">${esc(c.name)}</span>
             <ha-icon icon="${dIcon}" style="color:${dColor}"></ha-icon>
-            <span class="t"><span class="hi">${deg(d.temperature)}</span><span class="lo">${deg(d.templow)}</span></span></div>`;
+            <span class="t"><span class="hi">${deg(c.hi)}</span>${c.lo !== undefined ? `<span class="lo">${deg(c.lo)}</span>` : ""}</span></div>`;
         })
         .join("")}</div>`;
     if (html !== this._html) {
       this._html = html;
       content.innerHTML = html;
+      // Fade the forecast row in when it switches between days and hours.
+      if (this._shownView !== this._view) content.querySelector(".days")?.classList.add("swap");
+      this._shownView = this._view;
     }
   }
 }
