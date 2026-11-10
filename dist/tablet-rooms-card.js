@@ -1,6 +1,7 @@
 // custom:tablet-rooms-card — room grid that swaps in place for the room's
 // controls (no popups). State is per browser; returns to the grid after
-// `timeout_seconds` without a touch.
+// `timeout_seconds` without a touch. Every room is built once, right after
+// the grid, and stays mounted; opening a room only toggles visibility.
 //
 //   rooms:
 //     - name: Esstisch
@@ -52,8 +53,15 @@ export class TabletRoomsCard extends HTMLElement {
 
   _open(index) {
     this._room = index;
-    this._render();
+    this._show();
     this._armTimeout();
+  }
+
+  _show() {
+    const content = this.shadowRoot?.querySelector(".content");
+    if (!content) return;
+    content.querySelector(".grid").hidden = this._room !== null;
+    content.querySelectorAll(".room").forEach((el, i) => (el.hidden = i !== this._room));
   }
 
   async _makeCards(configs) {
@@ -80,6 +88,7 @@ export class TabletRoomsCard extends HTMLElement {
       .tile:active { background: rgba(255,255,255,0.2); }
       .room { height: 100%; display: flex; flex-direction: column; gap: 18px; border-radius: 32px; padding: 20px;
         box-sizing: border-box; background: rgba(16, 18, 40, 0.45); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+      [hidden] { display: none !important; }
       .head { display: flex; align-items: center; gap: 18px; flex: none; }
       .back { border: none; font: inherit; font-size: 20px; font-weight: 600; color: #161830; background: #fff;
         border-radius: 999px; height: 60px; padding: 0 26px 0 16px; display: flex; align-items: center; gap: 8px;
@@ -91,26 +100,24 @@ export class TabletRoomsCard extends HTMLElement {
       .side { min-height: 0; border-radius: 28px; background: rgba(255,255,255,0.05); }
       .actions { flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 14px; }
     `);
+    if (content.firstChild) return this._show();
     this._cards = [];
     const rooms = this._config.rooms;
-    if (this._room === null) {
-      const cols = Number(this._config.columns);
-      content.innerHTML = `<div class="grid" style="grid-template-columns: repeat(${cols * 2}, 1fr)">${rooms
-        .map((r, i) => {
-          // Centre an incomplete last row, like the Magic Frame layout.
-          const lastRow = Math.floor(i / cols) === Math.floor((rooms.length - 1) / cols);
-          const inLast = rooms.length % cols;
-          const offset = lastRow && inLast && i % cols === 0 ? cols - inLast + 1 : "auto";
-          return `<button class="tile" data-i="${i}" style="grid-column: ${offset} / span 2">
-            <ha-icon icon="${esc(r.icon)}"></ha-icon><span>${esc(r.name)}</span></button>`;
-        })
-        .join("")}</div>`;
-      content.querySelectorAll(".tile").forEach((t) => t.addEventListener("click", () => this._open(Number(t.dataset.i))));
-      return;
-    }
-    const room = rooms[this._room];
-    content.innerHTML = `
-      <div class="room">
+    const cols = Number(this._config.columns);
+    const grid = `<div class="grid" style="grid-template-columns: repeat(${cols * 2}, 1fr)">${rooms
+      .map((r, i) => {
+        // Centre an incomplete last row, like the Magic Frame layout.
+        const lastRow = Math.floor(i / cols) === Math.floor((rooms.length - 1) / cols);
+        const inLast = rooms.length % cols;
+        const offset = lastRow && inLast && i % cols === 0 ? cols - inLast + 1 : "auto";
+        return `<button class="tile" data-i="${i}" style="grid-column: ${offset} / span 2">
+          <ha-icon icon="${esc(r.icon)}"></ha-icon><span>${esc(r.name)}</span></button>`;
+      })
+      .join("")}</div>`;
+    const panels = rooms
+      .map(
+        (room) => `
+      <div class="room" hidden>
         <div class="head">
           <button class="back"><ha-icon icon="mdi:chevron-left"></ha-icon>Zurück</button>
           <div class="title"><ha-icon icon="${esc(room.icon)}"></ha-icon>${esc(room.name)}</div>
@@ -120,16 +127,22 @@ export class TabletRoomsCard extends HTMLElement {
           ${room.side ? `<div class="side"></div>` : ""}
         </div>
         ${room.actions ? `<div class="actions"></div>` : ""}
-      </div>`;
-    content.querySelector(".back").addEventListener("click", () => this._open(null));
-    // Any touch inside the room restarts the auto-return timer.
-    content.querySelector(".room").addEventListener("pointerdown", () => this._armTimeout());
-    const fill = async (sel, configs) => {
-      const host = content.querySelector(sel);
-      if (host) for (const el of await this._makeCards(configs)) host.append(el);
-    };
-    fill(".main", room.main);
-    fill(".side", room.side);
-    fill(".actions", room.actions);
+      </div>`,
+      )
+      .join("");
+    content.innerHTML = grid + panels;
+    content.querySelectorAll(".tile").forEach((t) => t.addEventListener("click", () => this._open(Number(t.dataset.i))));
+    content.querySelectorAll(".back").forEach((b) => b.addEventListener("click", () => this._open(null)));
+    // Any touch inside a room restarts the auto-return timer.
+    content.querySelectorAll(".room").forEach((el) => el.addEventListener("pointerdown", () => this._armTimeout()));
+    this._show();
+    // Mount the room cards in the background so a tap only switches visibility.
+    content.querySelectorAll(".room").forEach(async (el, i) => {
+      const room = rooms[i];
+      for (const [sel, configs] of [[".main", room.main], [".side", room.side], [".actions", room.actions]]) {
+        const host = el.querySelector(sel);
+        if (host) for (const card of await this._makeCards(configs)) host.append(card);
+      }
+    });
   }
 }

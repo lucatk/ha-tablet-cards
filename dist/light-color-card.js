@@ -3,25 +3,12 @@
 
 import { ensureShell, esc } from "./shared.js";
 
-const WHEEL_PX = 480; // canvas resolution; displayed size comes from CSS
-
-function drawWheel(canvas) {
-  const ctx = canvas.getContext("2d");
-  const r = WHEEL_PX / 2;
-  const img = ctx.createImageData(WHEEL_PX, WHEEL_PX);
-  for (let y = 0; y < WHEEL_PX; y++) {
-    for (let x = 0; x < WHEEL_PX; x++) {
-      const dx = x - r;
-      const dy = y - r;
-      const d = Math.sqrt(dx * dx + dy * dy);
-      if (d > r) continue;
-      const [cr, cg, cb] = hsToRgb((Math.atan2(dy, dx) * 180) / Math.PI + 360, d / r);
-      const i = (y * WHEEL_PX + x) * 4;
-      img.data.set([cr, cg, cb, d > r - 1.5 ? 255 * (r - d) / 1.5 : 255], i);
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-}
+// The wheel is pure CSS: a conic hue gradient (0° = right, clockwise, matching
+// atan2 in screen coordinates) under a radial white-to-transparent fade for
+// saturation. Drawing it per pixel took ~0.4 s on the tablet.
+const WHEEL_BG =
+  "radial-gradient(circle closest-side, #fff, rgba(255,255,255,0) 100%)," +
+  "conic-gradient(from 90deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)";
 
 export function hsToRgb(h, s) {
   h = ((h % 360) + 360) % 360;
@@ -72,9 +59,8 @@ export class LightColorCard extends HTMLElement {
     content.innerHTML = `
       ${many ? `<div class="chips">${["all", ...this._config.entities]
         .map((e) => `<button class="chip" data-e="${esc(e)}"></button>`).join("")}</div>` : ""}
-      <div class="wheel"><canvas width="${WHEEL_PX}" height="${WHEEL_PX}"></canvas><div class="dot"></div></div>
+      <div class="wheel"><div class="disc"></div><div class="dot"></div></div>
       <div class="temp"><div class="knob"></div></div>`;
-    drawWheel(content.querySelector("canvas"));
     content.querySelectorAll(".chip").forEach((b) =>
       b.addEventListener("click", () => {
         this._selected = b.dataset.e;
@@ -153,7 +139,7 @@ export class LightColorCard extends HTMLElement {
         background: rgba(255,255,255,0.10); cursor: pointer; }
       .chip.on { background: #fff; color: #161830; font-weight: 600; }
       .wheel { position: relative; flex: 1 1 0; min-height: 0; max-height: 320px; aspect-ratio: 1; max-width: 100%; touch-action: none; }
-      canvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
+      .disc { width: 100%; height: 100%; border-radius: 50%; background: ${WHEEL_BG}; }
       .dot { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%;
         border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.5); pointer-events: none; }
       .temp { position: relative; flex: none; width: min(100%, 320px); height: 44px; border-radius: 22px; touch-action: none;
