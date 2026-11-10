@@ -8,6 +8,8 @@
 //   custom:tablet-action-card   large service button
 //   custom:light-color-card     colour wheel + colour temperature
 //   custom:bing-wallpaper-card  Bing image of the day as background
+//   custom:tablet-media-card    media tile, full player while playing
+//   custom:tablet-appliances-card  washer / dishwasher / vacuum tiles
 //
 // Plain web components (ES modules), no build step and no dependencies.
 
@@ -18,8 +20,10 @@ import { LightColorCard } from "./light-color-card.js";
 import { TabletActionCard, TabletEntityCard } from "./tablet-entity-card.js";
 import { TabletRoomsCard } from "./tablet-rooms-card.js";
 import { BingWallpaperCard } from "./bing-wallpaper-card.js";
+import { TabletMediaCard } from "./tablet-media-card.js";
+import { TabletAppliancesCard } from "./tablet-appliances-card.js";
 
-const VERSION = "1.2.1";
+const VERSION = "1.3.0";
 
 customElements.define("mvg-departures-card", MvgDeparturesCard);
 customElements.define("news-ticker-card", NewsTickerCard);
@@ -29,6 +33,8 @@ customElements.define("tablet-entity-card", TabletEntityCard);
 customElements.define("tablet-action-card", TabletActionCard);
 customElements.define("tablet-rooms-card", TabletRoomsCard);
 customElements.define("bing-wallpaper-card", BingWallpaperCard);
+customElements.define("tablet-media-card", TabletMediaCard);
+customElements.define("tablet-appliances-card", TabletAppliancesCard);
 
 window.customCards = window.customCards || [];
 window.customCards.push(
@@ -39,6 +45,8 @@ window.customCards.push(
   { type: "tablet-entity-card", name: "Tablet Entity Row", description: "Large pill row: toggle, dim by dragging" },
   { type: "tablet-action-card", name: "Tablet Action Button", description: "Large button that calls a service" },
   { type: "tablet-rooms-card", name: "Tablet Rooms", description: "Room grid that opens rooms in place" },
+  { type: "tablet-media-card", name: "Tablet Media", description: "Media tile; full player while playing" },
+  { type: "tablet-appliances-card", name: "Tablet Appliances", description: "Washer, dishwasher and vacuum status with controls" },
   { type: "bing-wallpaper-card", name: "Bing Wallpaper", description: "Full-screen Bing image of the day as background" },
 );
 

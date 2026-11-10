@@ -1,35 +1,44 @@
-// custom:tablet-entity-card — one large pill row per entity.
-//   dimmable light: tap toggles, drag sets brightness (the fill is the level)
+// custom:tablet-entity-card — one large tile per entity, in the room-button
+// style (icon above name and state).
+//   dimmable light: tap toggles, drag sideways sets brightness (fill = level)
 //   light / switch: tap toggles
 //   anything else:  state only
+// `detail: color | members` adds an arrow on the right. Tapping it fires a
+// `tablet-detail` event that tablet-rooms-card turns into a side panel
+// (colour picker, or the member lights of a group).
 // custom:tablet-action-card — large button that calls a service.
 
 import { ensureShell, esc } from "./shared.js";
 import { dragHandler } from "./light-color-card.js";
 
-const PILL_CSS = `
+const TILE_CSS = `
   :host { display: block; }
   ha-card { background: none; border: none; box-shadow: none; }
-  .pill { position: relative; overflow: hidden; height: var(--tablet-row-height, 76px); border-radius: 999px;
-    background: rgba(255,255,255,0.09); color: #fff; display: flex; align-items: center; gap: 16px;
-    padding: 0 26px 0 10px; box-sizing: border-box; user-select: none; touch-action: pan-y; cursor: pointer; }
-  .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--fill, #f5b041); opacity: .9;
+  .tile { position: relative; overflow: hidden; height: var(--tablet-tile-height, 128px); border-radius: 28px;
+    background: rgba(255,255,255,0.09); color: #fff; display: flex; align-items: center;
+    padding: 0 12px 0 22px; box-sizing: border-box; user-select: none; touch-action: pan-y; cursor: pointer; }
+  .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--fill, #f5b041); opacity: .85;
     transition: width .25s ease; }
-  .pill.dragging .fill { transition: none; }
-  .icon { position: relative; flex: none; width: 56px; height: 56px; border-radius: 50%;
-    background: rgba(255,255,255,0.14); display: grid; place-items: center; --mdc-icon-size: 30px; }
-  .pill.on .icon { background: rgba(255,255,255,0.9); color: #222; }
-  .text { position: relative; min-width: 0; flex: 1; }
-  .name { font-size: 22px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .state { font-size: 17px; opacity: .75; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .pill.on.dim .name, .pill.on.dim .state { text-shadow: 0 1px 3px rgba(0,0,0,.45); }
-  .pill.static { cursor: default; }
+  .tile.dragging .fill { transition: none; }
+  .info { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .icon { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.14);
+    display: var(--tablet-tile-icon, grid); place-items: center; --mdc-icon-size: 26px; margin-bottom: 2px; }
+  .tile.on .icon { background: rgba(255,255,255,0.92); color: #222; }
+  .name { font-size: 23px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .state { font-size: 18px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile.on .name, .tile.on .state { text-shadow: 0 1px 3px rgba(0,0,0,.45); }
+  .tile.static { cursor: default; }
+  .arrow { position: relative; flex: none; width: 56px; height: 56px; border-radius: 50%; border: none;
+    background: rgba(0,0,0,0.22); color: #fff; display: grid; place-items: center; --mdc-icon-size: 32px;
+    cursor: pointer; margin-left: 8px; }
+  .arrow.open { background: #fff; color: #161830; }
 `;
 
 export class TabletEntityCard extends HTMLElement {
   setConfig(config) {
     if (!config.entity) throw new Error("tablet-entity-card: `entity` required");
     this._config = config;
+    this._builtKind = undefined;
     if (this.shadowRoot) this.shadowRoot.innerHTML = "";
   }
 
@@ -39,7 +48,7 @@ export class TabletEntityCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 1;
+    return 2;
   }
 
   connectedCallback() {
@@ -47,48 +56,69 @@ export class TabletEntityCard extends HTMLElement {
     this._render();
   }
 
+  /** Highlight the arrow while this tile's side panel is open. */
+  set detailOpen(open) {
+    this.shadowRoot?.querySelector(".arrow")?.classList.toggle("open", open);
+  }
+
   _kind(st) {
     const domain = this._config.entity.split(".")[0];
     const modes = st?.attributes?.supported_color_modes ?? [];
     if (domain === "light" && modes.some((m) => m !== "onoff")) return "dimmer";
-    if (domain === "light" || domain === "switch" || domain === "fan" || domain === "input_boolean") return "toggle";
+    if (["light", "switch", "fan", "input_boolean"].includes(domain)) return "toggle";
     return "static";
   }
 
   _build(content, kind) {
+    const detail = this._config.detail;
     content.innerHTML = `
-      <div class="pill ${kind}">
+      <div class="tile ${kind}">
         <div class="fill"></div>
-        <div class="icon"><ha-state-icon></ha-state-icon></div>
-        <div class="text"><div class="name"></div><div class="state"></div></div>
+        <div class="info">
+          <div class="icon"><ha-state-icon></ha-state-icon></div>
+          <div class="name"></div><div class="state"></div>
+        </div>
+        ${detail ? `<button class="arrow"><ha-icon icon="mdi:chevron-right"></ha-icon></button>` : ""}
       </div>`;
-    const pill = content.querySelector(".pill");
+    const tile = content.querySelector(".tile");
+    const arrow = content.querySelector(".arrow");
+    if (arrow) {
+      // Keep the tile's own tap/drag handling out of the arrow.
+      arrow.addEventListener("pointerdown", (e) => e.stopPropagation());
+      arrow.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.dispatchEvent(new CustomEvent("tablet-detail", {
+          bubbles: true, composed: true,
+          detail: { entity: this._config.entity, name: this._name(), kind: detail, card: this },
+        }));
+      });
+    }
     if (kind === "toggle") {
-      pill.addEventListener("click", () => this._hass.callService("homeassistant", "toggle", { entity_id: this._config.entity }));
+      tile.addEventListener("click", () => this._hass.callService("homeassistant", "toggle", { entity_id: this._config.entity }));
     }
     if (kind === "dimmer") {
       // Tap toggles; a horizontal drag sets the brightness.
       let startX = 0;
       let moved = false;
-      pill.addEventListener("pointerdown", (e) => {
+      tile.addEventListener("pointerdown", (e) => {
         startX = e.clientX;
         moved = false;
       });
       const level = (e) => {
-        const r = pill.getBoundingClientRect();
+        const r = tile.getBoundingClientRect();
         return Math.max(1, Math.min(100, Math.round(((e.clientX - r.left) / r.width) * 100)));
       };
       dragHandler(
-        pill,
+        tile,
         (e) => {
           if (Math.abs(e.clientX - startX) > 10) moved = true;
           if (!moved) return;
-          pill.classList.add("dragging");
+          tile.classList.add("dragging");
           this._dragLevel = level(e);
           this._paint();
         },
         (e) => {
-          pill.classList.remove("dragging");
+          tile.classList.remove("dragging");
           if (moved) {
             this._hass.callService("light", "turn_on", { entity_id: this._config.entity, brightness_pct: level(e) });
           } else {
@@ -100,36 +130,38 @@ export class TabletEntityCard extends HTMLElement {
     }
   }
 
+  _name() {
+    const st = this._hass?.states[this._config.entity];
+    return this._config.name ?? st?.attributes?.friendly_name ?? this._config.entity;
+  }
+
   _stateText(st, kind) {
     if (!st) return "Nicht gefunden";
     if (this._dragLevel !== undefined) return `${this._dragLevel} %`;
     if (kind === "dimmer" && st.state === "on") {
       return `${Math.round(((st.attributes.brightness ?? 255) / 255) * 100)} %`;
     }
-    const media = st.attributes.media_title;
-    const text = this._hass.formatEntityState ? this._hass.formatEntityState(st) : st.state;
-    return st.entity_id.startsWith("media_player.") && media && st.state === "playing" ? `${text} · ${media}` : text;
+    return this._hass.formatEntityState ? this._hass.formatEntityState(st) : st.state;
   }
 
   _paint() {
     const st = this._hass.states[this._config.entity];
     const kind = this._kind(st);
-    const pill = this.shadowRoot.querySelector(".pill");
+    const tile = this.shadowRoot.querySelector(".tile");
     const on = st?.state === "on";
     const pct = this._dragLevel ?? (kind === "dimmer" && on ? ((st.attributes.brightness ?? 255) / 255) * 100 : on ? 100 : 0);
     const rgb = st?.attributes?.rgb_color;
-    pill.style.setProperty("--fill", rgb ? `rgb(${rgb.join(",")})` : "#f5b041");
-    pill.querySelector(".fill").style.width = kind === "static" ? "0" : `${pct}%`;
-    pill.classList.toggle("on", on || this._dragLevel !== undefined);
-    pill.classList.toggle("dim", kind !== "static");
-    pill.querySelector(".state").textContent = this._stateText(st, kind);
+    tile.style.setProperty("--fill", rgb ? `rgb(${rgb.join(",")})` : "#f5b041");
+    tile.querySelector(".fill").style.width = kind === "static" ? "0" : `${pct}%`;
+    tile.classList.toggle("on", on || this._dragLevel !== undefined);
+    tile.querySelector(".state").textContent = this._stateText(st, kind);
   }
 
   _render() {
     if (!this.shadowRoot || !this._config || !this._hass) return;
     const st = this._hass.states[this._config.entity];
     const kind = this._kind(st);
-    const content = ensureShell(this.shadowRoot, PILL_CSS);
+    const content = ensureShell(this.shadowRoot, TILE_CSS);
     if (this._builtKind !== kind) {
       this._build(content, kind);
       this._builtKind = kind;
@@ -138,7 +170,7 @@ export class TabletEntityCard extends HTMLElement {
     icon.hass = this._hass;
     icon.stateObj = st;
     if (this._config.icon) icon.icon = this._config.icon;
-    content.querySelector(".name").textContent = this._config.name ?? st?.attributes?.friendly_name ?? this._config.entity;
+    content.querySelector(".name").textContent = this._name();
     this._paint();
   }
 }
@@ -163,10 +195,10 @@ export class TabletActionCard extends HTMLElement {
     const content = ensureShell(this.shadowRoot, `
       :host { display: block; height: 100%; }
       ha-card { height: 100%; background: none; border: none; box-shadow: none; }
-      button { width: 100%; height: 100%; min-height: 96px; border: none; border-radius: 28px; cursor: pointer;
-        background: rgba(255,255,255,0.09); color: #fff; font: inherit; font-size: 19px; font-weight: 600;
-        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
-        --mdc-icon-size: 34px; transition: background .2s; }
+      button { width: 100%; height: 100%; min-height: var(--tablet-action-height, 104px); border: none; border-radius: 28px; cursor: pointer;
+        background: rgba(255,255,255,0.09); color: #fff; font: inherit; font-size: 20px; font-weight: 600;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+        --mdc-icon-size: 36px; transition: background .2s; }
       button:active, button.done { background: rgba(255,255,255,0.28); }
     `);
     content.innerHTML = `<button>${c.icon ? `<ha-icon icon="${esc(c.icon)}"></ha-icon>` : ""}<span>${esc(c.name ?? "")}</span></button>`;

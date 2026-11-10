@@ -17,6 +17,7 @@ export class MvgDeparturesCard extends HTMLElement {
       cycle_seconds: 10,
       font_size: "20px",
       header_text: "Abfahrt in Min.",
+      show_system_icons: true,
       ...config,
     };
     this._stops = config.stops.map((s) => ({ ...parseStop(s), station: null, deps: [], error: null, loading: true }));
@@ -60,6 +61,7 @@ export class MvgDeparturesCard extends HTMLElement {
     if (this._pageCount() > 1) {
       this._cycleTimer = setInterval(() => {
         this._page = (this._page + 1) % this._pageCount();
+        this._animate = true;
         this._render();
       }, Math.max(3, Number(c.cycle_seconds)) * 1000);
     }
@@ -106,9 +108,14 @@ export class MvgDeparturesCard extends HTMLElement {
     const type = d.sev ? "SEV" : d.transportType;
     const icon = SYSTEM_ICONS[type];
     const [bg, fg] = lineColor(d.line, d.transportType);
+    const sys = !this._config.show_system_icons
+      ? ""
+      : icon
+        ? `<img class="sys" src="${icon}" alt="">`
+        : `<span class="badge" style="background:${SYSTEM_COLORS[type] ?? "#444"}">${esc(type[0])}</span>`;
     return `
       <div class="row${d.cancelled ? " cancelled" : ""}">
-        ${icon ? `<img class="sys" src="${icon}" alt="">` : `<span class="badge" style="background:${SYSTEM_COLORS[type] ?? "#444"}">${esc(type[0])}</span>`}
+        ${sys}
         <span class="badge" style="background:${bg};color:${fg}">${esc(d.line)}</span>
         <span class="dest">${esc(d.destination)}</span>
         <span class="min${late ? " late" : ""}">${d.cancelled ? "—" : mins}</span>
@@ -151,7 +158,11 @@ export class MvgDeparturesCard extends HTMLElement {
           display: flex; justify-content: space-between; gap: 1em; font-weight: 600;
           border-bottom: 1px solid #fff; padding-bottom: 0.15em; margin-bottom: 0.1em;
         }
-        .row { display: grid; grid-template-columns: 1em 2.2em 1fr auto; align-items: center; column-gap: 0.35em; }
+        .page { display: flex; flex-direction: column; gap: 0.9em; }
+        .page.anim { animation: fade 600ms ease-out; }
+        @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        .row { display: grid; grid-template-columns: ${c.show_system_icons ? "1em " : ""}2.2em 1fr auto;
+          align-items: center; column-gap: ${c.show_system_icons ? "0.35em" : "0.5em"}; }
         .row.cancelled { opacity: 0.45; }
         .row.cancelled .dest { text-decoration: line-through; }
         .sys { width: 1em; height: 1em; display: block;
@@ -169,6 +180,8 @@ export class MvgDeparturesCard extends HTMLElement {
         .dots { display: flex; justify-content: center; gap: 6px; }
         .dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.3); }
         .dots span.on { background: #fff; }
-    `).innerHTML = sections + dots;
+    `).innerHTML = `<div class="page${this._animate ? " anim" : ""}">${sections}</div>${dots}`;
+    // Only page changes animate; minute ticks and refreshes re-render quietly.
+    this._animate = false;
   }
 }

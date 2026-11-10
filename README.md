@@ -16,6 +16,7 @@ stops:                       # <stop>[;<TYPE>,<TYPE>…] — name or global ID
   - de:09162:120;UBAHN       # Theresienstraße
   - de:09162:70;UBAHN        # Universität
 limit: 3                     # departures per stop
+show_system_icons: true      # U/S/Tram/Bus icon before the line badge
 per_page: 2                  # stops per page; 0 = show all
 cycle_seconds: 10            # page interval
 refresh_seconds: 60          # API refresh (min 30)
@@ -62,12 +63,10 @@ columns: 3
 rooms:
   - name: Esstisch
     icon: mdi:table-chair
-    main:            # left column (full width without `side`)
+    main:            # device tiles, two columns
       - type: custom:tablet-entity-card
         entity: light.hue_esstisch
-    side:            # optional right column
-      - type: custom:light-color-card
-        entities: [light.hue_esstisch]
+        detail: color
     actions:         # optional bottom row
       - type: custom:tablet-action-card
         name: Relax
@@ -76,9 +75,14 @@ rooms:
         target: { entity_id: scene.esstisch_esstisch_relax }
 ```
 
-- `custom:tablet-entity-card` — large pill row. Dimmable lights: tap toggles, drag sideways sets brightness. Lights/switches: tap toggles. Other entities: state only.
+- `custom:tablet-entity-card` — large tile (icon, name, state). Dimmable lights: tap toggles, drag sideways sets brightness. Lights/switches: tap toggles. Other entities: state only. `detail: color` adds an arrow that opens a colour picker next to the tiles; `detail: members` opens the member lights of a group (each with its own colour arrow).
+- `custom:tablet-media-card` — media player tile; while playing/paused it spans the row with artwork, title, previous/play-pause/next and a volume bar.
 - `custom:tablet-action-card` — large button calling `action` (`domain.service`) with optional `data` / `target`.
 - `custom:light-color-card` — colour wheel and colour-temperature slider for one or more lights (`names` maps entity → chip label).
+
+## `custom:tablet-appliances-card`
+
+Row of appliance tiles (washer, dishwasher, vacuum) with status, a progress bar while running and round control buttons. See `dashboards/build.py` for the entity keys of each `kind`.
 
 ## `custom:bing-wallpaper-card`
 

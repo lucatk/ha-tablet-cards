@@ -48,28 +48,19 @@ ROOMS = [
     },
     {
         "key": "kueche", "name": "Küche", "icon": "mdi:stove", "area": "r3",
-        "entities": ["light.kuche_licht", "switch.shellyplus2pm_c82e18065c2c_switch_0", "switch.spuli_power"],
-        "names": {"light.kuche_licht": "Licht", "switch.shellyplus2pm_c82e18065c2c_switch_0": "Lüftung",
-                  "switch.spuli_power": "Spülmaschine"},
+        "entities": ["light.kuche_licht", "switch.shellyplus2pm_c82e18065c2c_switch_0"],
+        "names": {"light.kuche_licht": "Licht", "switch.shellyplus2pm_c82e18065c2c_switch_0": "Lüftung"},
         "scenes": [],
     },
     {
         "key": "schlafzimmer", "name": "Schlafzimmer", "icon": "mdi:bed-outline", "area": "r4",
         "entities": ["light.hue_schlafzimmer", "light.hue_schlafzimmer_spots", "media_player.schlafzimmer_one"],
-        "names": {"light.hue_schlafzimmer": "Deckenlicht", "light.hue_schlafzimmer_spots": "Spots",
+        "names": {"light.hue_schlafzimmer": "Alle Lichter", "light.hue_schlafzimmer_spots": "Spots",
                   "media_player.schlafzimmer_one": "Sonos One"},
         "chips": {"light.hue_schlafzimmer": "Decke", "light.hue_schlafzimmer_spots": "Spots"},
         "scenes": [("scene.schlafzimmer_schlafzimmer_relax", "Relax", "mdi:sofa-single-outline"),
                    ("scene.schlafzimmer_schlafzimmer_read", "Lesen", "mdi:book-open-variant"),
                    ("scene.schlafzimmer_schlafzimmer_nightlight", "Nachtlicht", "mdi:weather-night")],
-    },
-    {
-        "key": "bad", "name": "Bad", "icon": "mdi:shower-head", "area": "r5",
-        "entities": ["vacuum.roborock_qrevo_s", "media_player.bad_roam"],
-        "names": {"vacuum.roborock_qrevo_s": "Saugroboter", "media_player.bad_roam": "Sonos Roam"},
-        "vacuum": [("vacuum.start", "Start", "mdi:play"),
-                   ("vacuum.pause", "Pause", "mdi:pause"),
-                   ("vacuum.return_to_base", "Zur Station", "mdi:home-import-outline")],
     },
 ]
 
@@ -108,9 +99,8 @@ ha-card, .name, .attribute, .temp-attribute, .forecast .templow { color: #fff !i
          "layout": "hero", "view_layout": {"grid-area": "news"}, "card_mod": glass()},
         {"type": "custom:mvg-departures-card",
          "stops": ["de:09162:126;BUS", "de:09162:51;TRAM", "de:09162:120;UBAHN", "de:09162:70;UBAHN"],
-         "limit": 3, "per_page": 2, "cycle_seconds": 10, "refresh_seconds": 60, "font_size": "19px",
+         "limit": 4, "per_page": 2, "show_system_icons": False, "cycle_seconds": 10, "refresh_seconds": 60, "font_size": "19px",
          "view_layout": {"grid-area": "mvg"}, "card_mod": glass("ha-card { padding: 20px 24px !important; }")},
-        appliance_card(),
     ]
 
 DISHWASHER_PROGRAMS = {
@@ -122,38 +112,6 @@ DISHWASHER_PROGRAMS = {
     "dishcare_dishwasher_program_pre_rinse": "Vorspülen",
 }
 
-WASHER_RUNNING = {"condition": "state", "entity": "binary_sensor.unnamed_room_waschmaschine_running", "state": "on"}
-DISHWASHER_RUNNING = {"condition": "state", "entity": "sensor.spuli_operation_state",
-                      "state": ["run", "delayedstart", "pause"]}
-
-APPLIANCE_TEMPLATE = (
-    "{% set w_on = is_state('binary_sensor.unnamed_room_waschmaschine_running', 'on') %}"
-    "{% set d_on = states('sensor.spuli_operation_state') in ['run', 'delayedstart', 'pause'] %}"
-    "{% set progs = " + json.dumps(DISHWASHER_PROGRAMS) + " %}"
-    "{% if w_on %}<ha-icon icon=\"mdi:washing-machine\"></ha-icon>&nbsp; **Waschmaschine** · "
-    "{{ states('sensor.unnamed_room_waschmaschine_program') }}"
-    "{% set r = states('sensor.unnamed_room_waschmaschine_time_remaining') %}"
-    "{% if r | is_number %} · noch {{ r | int }} min{% endif %}{% endif %}"
-    "{% if w_on and d_on %}<br>{% endif %}"
-    "{% if d_on %}<ha-icon icon=\"mdi:dishwasher\"></ha-icon>&nbsp; **Spülmaschine** · "
-    "{{ progs.get(states('select.spuli_active_program'), 'Programm läuft') }}"
-    "{% set f = states('sensor.spuli_program_finish_time') %}"
-    "{% if is_state('sensor.spuli_operation_state', 'delayedstart') %} · Startzeitvorwahl"
-    "{% elif as_datetime(f) %} · noch {{ ((as_datetime(f) - now()).total_seconds() / 60) | round(0) | int }} min"
-    "{% endif %}{% endif %}"
-)
-
-def appliance_card():
-    return {
-        "type": "conditional",
-        "conditions": [{"condition": "or", "conditions": [WASHER_RUNNING, DISHWASHER_RUNNING]}],
-        "view_layout": {"grid-area": "apps"},
-        "card": {
-            "type": "markdown", "content": APPLIANCE_TEMPLATE,
-            "card_mod": glass("ha-card { padding: 2px 22px; font-size: 19px; line-height: 2; --primary-text-color: #fff; }"),
-        },
-    }
-
 def grid(rooms_rows, extra_cards):
     areas = '"clock weather" "news mvg" "apps apps" ' + rooms_rows
     return {
@@ -161,7 +119,7 @@ def grid(rooms_rows, extra_cards):
         "layout_type": "custom:grid-layout",
         "layout": {
             "grid-template-columns": "1fr 1fr",
-            "grid-template-rows": "212px 352px auto 1fr",
+            "grid-template-rows": "212px 352px 136px minmax(0, 1fr)",
             "grid-template-areas": areas,
             "grid-gap": "14px",
             # HA pads the view by the status-bar inset on the tablet (28 px); subtract it.
@@ -173,25 +131,60 @@ def grid(rooms_rows, extra_cards):
         "cards": top_cards() + extra_cards,
     }
 
+# Hue group lights whose members aren't already tiles in the room get an
+# arrow to the individual lights; other colour lights get a colour arrow.
+GROUP_MEMBERS = {
+    "light.hue_schlafzimmer_spots": True,
+    "light.hue_schlafzimmer": True,
+}
+
+def tile(entity, names, room_entities):
+    if entity.startswith("media_player."):
+        cfg = {"type": "custom:tablet-media-card", "entity": entity}
+    else:
+        cfg = {"type": "custom:tablet-entity-card", "entity": entity}
+        if GROUP_MEMBERS.get(entity):
+            cfg["detail"] = "members"
+        elif entity in COLOR_LIGHTS:
+            cfg["detail"] = "color"
+    if entity in names:
+        cfg["name"] = names[entity]
+    return cfg
+
 def room_config(room):
     names = room.get("names", {})
-    cfg = {
-        "name": room["name"], "icon": room["icon"],
-        "main": [{"type": "custom:tablet-entity-card", "entity": e, **({"name": names[e]} if e in names else {})}
-                 for e in room["entities"]],
-    }
-    colour = [e for e in room["entities"] if e in COLOR_LIGHTS]
-    if colour:
-        cfg["side"] = [{"type": "custom:light-color-card", "entities": colour, "names": room.get("chips", {})}]
+    cfg = {"name": room["name"], "icon": room["icon"],
+           "main": [tile(e, names, room["entities"]) for e in room["entities"]]}
     actions = action_cards(room)
     if actions:
         cfg["actions"] = actions
     return cfg
 
+APPLIANCES = {
+    "type": "custom:tablet-appliances-card",
+    "view_layout": {"grid-area": "apps"},
+    "items": [
+        {"kind": "washer", "name": "Waschmaschine", "icon": "mdi:washing-machine",
+         "running": "binary_sensor.unnamed_room_waschmaschine_running",
+         "state": "sensor.unnamed_room_waschmaschine_state",
+         "program": "sensor.unnamed_room_waschmaschine_program",
+         "remaining": "sensor.unnamed_room_waschmaschine_time_remaining",
+         "progress": "sensor.unnamed_room_waschmaschine_progress"},
+        {"kind": "dishwasher", "name": "Spülmaschine", "icon": "mdi:dishwasher",
+         "power": "switch.spuli_power", "operation": "sensor.spuli_operation_state",
+         "program": "select.spuli_active_program", "programs": DISHWASHER_PROGRAMS,
+         "finish": "sensor.spuli_program_finish_time", "progress": "sensor.spuli_program_progress",
+         "door": "sensor.spuli_door"},
+        {"kind": "vacuum", "name": "Saugroboter", "icon": "mdi:robot-vacuum",
+         "entity": "vacuum.roborock_qrevo_s", "status": "sensor.roborock_qrevo_s_status",
+         "battery": "sensor.roborock_qrevo_s_battery", "progress": "sensor.roborock_qrevo_s_cleaning_progress"},
+    ],
+}
+
 def dashboard():
     wallpaper = {"type": "custom:bing-wallpaper-card", "mkt": "de-DE", "resolution": "1080x1920",
                  "count": 8, "rotate_minutes": 10, "dim": 0.2, "view_layout": {"grid-area": "clock"}}
-    rooms = {"type": "custom:tablet-rooms-card", "timeout_seconds": ROOM_TIMEOUT_S, "columns": 3,
+    rooms = {"type": "custom:tablet-rooms-card", "timeout_seconds": ROOM_TIMEOUT_S, "columns": 2,
              "rooms": [room_config(r) for r in ROOMS], "view_layout": {"grid-area": "rooms"},
              "card_mod": {"style": "ha-card { --tablet-rooms-padding: 4px 0 18px; }"}}
     return {
@@ -199,7 +192,7 @@ def dashboard():
         "views": [{
             "title": "Tablet", "path": "tablet", "type": "panel",
             "background": "transparent",
-            "cards": [grid('"rooms rooms"', [wallpaper, rooms])],
+            "cards": [grid('"rooms rooms"', [wallpaper, APPLIANCES, rooms])],
         }],
     }
 
@@ -210,7 +203,7 @@ DASHBOARDS = {
 }
 REMOVED = ["dashboard-tablet-bubble"]
 
-async def main(preview_appliances=False):
+async def main():
     async with websockets.connect("ws://192.168.2.111/api/websocket", max_size=2**25) as w:
         await w.recv()
         await w.send(json.dumps({"type": "auth", "access_token": os.environ["HA_TOKEN"]}))
@@ -237,21 +230,8 @@ async def main(preview_appliances=False):
                                 "icon": icon, "show_in_sidebar": True, "require_admin": False, "mode": "storage"})
                 print("create", path, r.get("success"), r.get("error"))
             cfg = build()
-            if preview_appliances:
-                # Screenshot aid only: show the appliance strip with sample values.
-                s = json.dumps(cfg)
-                s = s.replace(json.dumps(WASHER_RUNNING), json.dumps(
-                    {"condition": "state", "entity": "sensor.spuli_operation_state", "state_not": "__none__"}))
-                for a, b in [("is_state('binary_sensor.unnamed_room_waschmaschine_running', 'on')", "true"),
-                             ("states('sensor.spuli_operation_state') in ['run', 'delayedstart', 'pause']", "true"),
-                             ("states('sensor.unnamed_room_waschmaschine_program')", "'Eco 40-60'"),
-                             ("states('sensor.unnamed_room_waschmaschine_time_remaining')", "'47'"),
-                             ("states('select.spuli_active_program')", "'dishcare_dishwasher_program_eco_50'"),
-                             ("states('sensor.spuli_program_finish_time')", "(now() + timedelta(minutes=93)).isoformat()")]:
-                    s = s.replace(json.dumps(a)[1:-1], json.dumps(b)[1:-1])
-                cfg = json.loads(s)
             r = await call({"type": "lovelace/config/save", "url_path": path, "config": cfg})
             print("save", path, r.get("success"), r.get("error"))
 
 if __name__ == "__main__":
-    asyncio.run(main(preview_appliances="--preview-appliances" in sys.argv))
+    asyncio.run(main())

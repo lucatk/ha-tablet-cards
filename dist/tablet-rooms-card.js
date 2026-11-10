@@ -3,14 +3,20 @@
 // `timeout_seconds` without a touch. Every room is built once, right after
 // the grid, and stays mounted; opening a room only toggles visibility.
 //
+//
 //   rooms:
 //     - name: Esstisch
 //       icon: mdi:table-chair
-//       main: [<card>, …]      left column (or full width without `side`)
-//       side: [<card>, …]      optional right column, e.g. light-color-card
+//       main: [<card>, …]      device tiles, two columns
 //       actions: [<card>, …]   optional bottom row, equal-width columns
+//
+// A tile's arrow (tablet-detail event) opens a side panel next to the tiles,
+// which then drop to one column: a colour picker for a light, or the member
+// lights of a group (each with its own colour arrow).
 
 import { ensureShell, esc } from "./shared.js";
+import "./light-color-card.js";
+import "./tablet-entity-card.js";
 
 let helpersPromise;
 const cardHelpers = () => (helpersPromise ??= window.loadCardHelpers());
@@ -52,9 +58,76 @@ export class TabletRoomsCard extends HTMLElement {
   }
 
   _open(index) {
+    this._closeDetail();
     this._room = index;
     this._show();
     this._armTimeout();
+  }
+
+  _track(el) {
+    el.hass = this._hass;
+    this._cards.push(el);
+    return el;
+  }
+
+  _closeDetail() {
+    const room = this._detailRoom;
+    if (!room) return;
+    const side = room.querySelector(".side");
+    side.querySelectorAll(".card > *").forEach((el) => (this._cards = this._cards.filter((c) => c !== el)));
+    side.remove();
+    room.querySelector(".body").classList.remove("split");
+    this._detailOwner && (this._detailOwner.detailOpen = false);
+    this._detailRoom = this._detailOwner = undefined;
+  }
+
+  /** Side panel for a tile's arrow: colour picker or group members. */
+  _openDetail(room, d, back) {
+    const sameOwner = this._detailOwner === d.card && !back && this._detailRoom === room;
+    this._closeDetail();
+    if (sameOwner) return; // second tap on the same arrow closes it
+    const side = document.createElement("div");
+    side.className = "side";
+    side.innerHTML = `
+      <div class="side-head">
+        ${back ? `<button class="side-back"><ha-icon icon="mdi:chevron-left"></ha-icon></button>` : ""}
+        <span>${esc(d.name)}</span>
+        <button class="side-close"><ha-icon icon="mdi:close"></ha-icon></button>
+      </div>
+      <div class="card"></div>`;
+    const host = side.querySelector(".card");
+    if (d.kind === "members") {
+      host.classList.add("members");
+      const st = this._hass.states[d.entity];
+      for (const member of st?.attributes?.entity_id ?? []) {
+        const tile = document.createElement("tablet-entity-card");
+        const modes = this._hass.states[member]?.attributes?.supported_color_modes ?? [];
+        const colour = modes.some((m) => ["hs", "xy", "rgb", "rgbw", "rgbww", "color_temp"].includes(m));
+        tile.setConfig({ entity: member, ...(colour ? { detail: "color" } : {}) });
+        tile.style.setProperty("--tablet-tile-height", "80px");
+        tile.style.setProperty("--tablet-tile-icon", "none");
+        host.append(this._track(tile));
+      }
+      // Member arrows open that member's colour picker, with a way back here.
+      host.addEventListener("tablet-detail", (e) => {
+        e.stopPropagation();
+        this._openDetail(room, e.detail, d);
+      });
+    } else {
+      const picker = document.createElement("light-color-card");
+      picker.setConfig({ entities: [d.entity] });
+      host.append(this._track(picker));
+    }
+    side.querySelector(".side-close").addEventListener("click", () => this._closeDetail());
+    side.querySelector(".side-back")?.addEventListener("click", () => {
+      this._closeDetail();
+      this._openDetail(room, back);
+    });
+    room.querySelector(".body").append(side);
+    room.querySelector(".body").classList.add("split");
+    this._detailRoom = room;
+    this._detailOwner = back?.card ?? d.card;
+    this._detailOwner.detailOpen = true;
   }
 
   _show() {
@@ -86,19 +159,30 @@ export class TabletRoomsCard extends HTMLElement {
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
         font-size: 26px; font-weight: 500; --mdc-icon-size: 76px; min-height: 0; }
       .tile:active { background: rgba(255,255,255,0.2); }
-      .room { height: 100%; display: flex; flex-direction: column; gap: 18px; border-radius: 32px; padding: 20px;
+      .room { height: 100%; display: flex; flex-direction: column; gap: 12px; border-radius: 32px; padding: 16px;
         box-sizing: border-box; background: rgba(16, 18, 40, 0.45); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
       [hidden] { display: none !important; }
       .head { display: flex; align-items: center; gap: 18px; flex: none; }
       .back { border: none; font: inherit; font-size: 20px; font-weight: 600; color: #161830; background: #fff;
-        border-radius: 999px; height: 60px; padding: 0 26px 0 16px; display: flex; align-items: center; gap: 8px;
+        border-radius: 999px; height: 52px; padding: 0 24px 0 14px; display: flex; align-items: center; gap: 8px;
         --mdc-icon-size: 28px; cursor: pointer; }
       .title { font-size: 30px; font-weight: 600; display: flex; align-items: center; gap: 12px; --mdc-icon-size: 34px; }
-      .body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; gap: 20px; }
-      .body.split { grid-template-columns: 1.15fr 1fr; }
-      .main { display: flex; flex-direction: column; gap: 14px; overflow: auto; }
-      .side { min-height: 0; border-radius: 28px; background: rgba(255,255,255,0.05); }
-      .actions { flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 14px; }
+      .body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); gap: 12px; }
+      .body.split { grid-template-columns: 1fr 1fr; }
+      .main { min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-content: start; overflow: auto;
+        --tablet-tile-height: 108px; --tablet-media-art: 116px; }
+      .split .main { grid-template-columns: 1fr; }
+      .side { min-height: 0; border-radius: 28px; background: rgba(255,255,255,0.07); display: flex;
+        flex-direction: column; padding: 14px; box-sizing: border-box; animation: slide .25s ease-out; }
+      .side-head { flex: none; display: flex; align-items: center; gap: 10px; font-size: 21px; font-weight: 600; }
+      .side-head span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 6px; }
+      .side-head button { width: 48px; height: 48px; border-radius: 50%; border: none; cursor: pointer;
+        background: rgba(255,255,255,0.14); color: #fff; display: grid; place-items: center; --mdc-icon-size: 28px; }
+      .side .card { flex: 1; min-height: 0; }
+      .side .card.members { display: flex; flex-direction: column; gap: 10px; overflow: auto; padding-top: 12px; }
+      @keyframes slide { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+      .actions { flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 12px;
+        --tablet-action-height: 84px; }
     `);
     if (content.firstChild) return this._show();
     this._cards = [];
@@ -122,10 +206,7 @@ export class TabletRoomsCard extends HTMLElement {
           <button class="back"><ha-icon icon="mdi:chevron-left"></ha-icon>Zurück</button>
           <div class="title"><ha-icon icon="${esc(room.icon)}"></ha-icon>${esc(room.name)}</div>
         </div>
-        <div class="body${room.side ? " split" : ""}">
-          <div class="main"></div>
-          ${room.side ? `<div class="side"></div>` : ""}
-        </div>
+        <div class="body"><div class="main"></div></div>
         ${room.actions ? `<div class="actions"></div>` : ""}
       </div>`,
       )
@@ -134,12 +215,15 @@ export class TabletRoomsCard extends HTMLElement {
     content.querySelectorAll(".tile").forEach((t) => t.addEventListener("click", () => this._open(Number(t.dataset.i))));
     content.querySelectorAll(".back").forEach((b) => b.addEventListener("click", () => this._open(null)));
     // Any touch inside a room restarts the auto-return timer.
-    content.querySelectorAll(".room").forEach((el) => el.addEventListener("pointerdown", () => this._armTimeout()));
+    content.querySelectorAll(".room").forEach((el) => {
+      el.addEventListener("pointerdown", () => this._armTimeout());
+      el.addEventListener("tablet-detail", (e) => this._openDetail(el, e.detail));
+    });
     this._show();
     // Mount the room cards in the background so a tap only switches visibility.
     content.querySelectorAll(".room").forEach(async (el, i) => {
       const room = rooms[i];
-      for (const [sel, configs] of [[".main", room.main], [".side", room.side], [".actions", room.actions]]) {
+      for (const [sel, configs] of [[".main", room.main], [".actions", room.actions]]) {
         const host = el.querySelector(sel);
         if (host) for (const card of await this._makeCards(configs)) host.append(card);
       }
