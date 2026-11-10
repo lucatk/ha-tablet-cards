@@ -80,7 +80,7 @@ def top_cards():
          "forecast_type": "daily", "forecast_slots": 4, "show_current": True, "show_forecast": True,
          "view_layout": {"grid-area": "weather"},
          "card_mod": glass("""
-ha-card { padding: 14px 12px; display: flex; flex-direction: column; justify-content: center; }
+ha-card { padding: 4px 12px; display: flex; flex-direction: column; justify-content: center; }
 ha-card, .name, .attribute, .temp-attribute, .forecast .templow { color: #fff !important; }
 .forecast .templow { opacity: 0.6; }
 """)},
@@ -90,7 +90,7 @@ ha-card, .name, .attribute, .temp-attribute, .forecast .templow { color: #fff !i
          "layout": "hero", "view_layout": {"grid-area": "news"}, "card_mod": glass()},
         {"type": "custom:mvg-departures-card",
          "stops": ["de:09162:126;BUS", "de:09162:51;TRAM", "de:09162:120;UBAHN", "de:09162:70;UBAHN"],
-         "limit": 4, "per_page": 2, "show_system_icons": False, "cycle_seconds": 10, "refresh_seconds": 60, "font_size": "19px",
+         "limit": 4, "per_page": 2, "show_system_icons": False, "cycle_seconds": 10, "refresh_seconds": 60, "font_size": "17px",
          "view_layout": {"grid-area": "mvg"}, "card_mod": glass("ha-card { padding: 20px 24px !important; }")},
     ]
 
@@ -104,13 +104,13 @@ DISHWASHER_PROGRAMS = {
 }
 
 def grid(rooms_rows, extra_cards):
-    areas = '"clock weather" "news mvg" "apps apps" ' + rooms_rows
+    areas = '"clock weather" "news mvg" "apps apps" ' + rooms_rows + ' "footer footer"'
     return {
         "type": "custom:layout-card",
         "layout_type": "custom:grid-layout",
         "layout": {
             "grid-template-columns": "1fr 1fr",
-            "grid-template-rows": "196px 332px 172px minmax(0, 1fr)",
+            "grid-template-rows": "196px 300px 150px minmax(0, 1fr) 56px",
             "grid-template-areas": areas,
             "grid-gap": "14px",
             # HA pads the view by the status-bar inset on the tablet (28 px); subtract it.
@@ -162,6 +162,10 @@ def room_config(room):
         cfg["actions"] = actions
     return cfg
 
+# Bottom-right pill: every light in the house off.
+ALL_OFF = {"type": "custom:tablet-action-card", "pill": True, "name": "Alles aus", "icon": "mdi:power",
+           "action": "light.turn_off", "target": {"entity_id": "all"}, "view_layout": {"grid-area": "footer"}}
+
 APPLIANCES = {
     "type": "custom:tablet-appliances-card",
     "view_layout": {"grid-area": "apps"},
@@ -195,7 +199,7 @@ def dashboard():
         "views": [{
             "title": "Tablet", "path": "tablet", "type": "panel",
             "background": "transparent",
-            "cards": [grid('"rooms rooms"', [wallpaper, APPLIANCES, rooms])],
+            "cards": [grid('"rooms rooms"', [wallpaper, APPLIANCES, rooms, ALL_OFF])],
         }],
     }
 

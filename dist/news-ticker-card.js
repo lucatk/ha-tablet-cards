@@ -85,10 +85,10 @@ export class NewsTickerCard extends HTMLElement {
           display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
         ha-card.hero { padding: 0; }
         .hero .content { flex-direction: column; align-items: stretch; gap: 0; }
-        .hero img { width: 100%; height: 48%; aspect-ratio: auto; border-radius: 0; animation: fade 600ms ease-out; }
-        .hero .body { flex: 1; min-height: 0; padding: 16px 22px 18px; display: flex; flex-direction: column; }
+        .hero img { width: 100%; height: 44%; flex: none; aspect-ratio: auto; border-radius: 0; animation: fade 600ms ease-out; }
+        .hero .body { flex: 1; min-height: 0; padding: 12px 20px 14px; overflow: hidden; display: flex; flex-direction: column; }
         .hero .title { -webkit-line-clamp: 2; }
-        .hero .text { -webkit-line-clamp: 2; }
+        .hero .text { -webkit-line-clamp: 1; }
         .hero .body.noimg .text { -webkit-line-clamp: 6; }
         @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
     `);

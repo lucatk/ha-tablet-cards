@@ -2,7 +2,7 @@
 // the state. Playing or paused: same size as a tile, with artwork, title,
 // speaker and artist, previous / play-pause / next and a vertical volume bar.
 
-import { ensureShell, esc } from "./shared.js";
+import { press, ensureShell, esc } from "./shared.js";
 import { dragHandler } from "./light-color-card.js";
 import { GERMAN } from "./tablet-entity-card.js";
 
@@ -134,6 +134,7 @@ export class TabletMediaCard extends HTMLElement {
       .bar { flex: 1; width: 32px; border-radius: 16px; background: rgba(255,255,255,0.14); overflow: hidden;
         touch-action: none; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; }
       .level { width: 100%; background: rgba(255,255,255,0.85); border-radius: inherit; }
+      ${press(".controls button", 0.88)}
     `);
     if (this._mode !== mode) {
       this._mode = mode;

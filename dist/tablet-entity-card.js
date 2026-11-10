@@ -8,9 +8,10 @@
 // (colour picker, or the member lights of a group). For a group light,
 // `color_entities` / `color_names` give the picker one chip per member
 // plus "Alle".
-// custom:tablet-action-card — large button that calls a service.
+// custom:tablet-action-card — large button that calls a service
+// (`pill: true` for a right-aligned round icon button with its label to the left).
 
-import { ensureShell, esc } from "./shared.js";
+import { press, ensureShell, esc } from "./shared.js";
 import { dragHandler } from "./light-color-card.js";
 
 const TILE_CSS = `
@@ -34,6 +35,8 @@ const TILE_CSS = `
     background: rgba(0,0,0,0.22); color: #fff; display: grid; place-items: center; --mdc-icon-size: 32px;
     cursor: pointer; margin-left: 8px; }
   .arrow.open { background: #fff; color: #161830; }
+  ${press(".tile", 0.96)}
+  ${press(".arrow", 0.88)}
 `;
 
 // The tablet's HA user is set to German, but other viewers may not be.
@@ -206,11 +209,24 @@ export class TabletActionCard extends HTMLElement {
       ha-card { height: 100%; background: none; border: none; box-shadow: none; }
       button { width: 100%; height: 100%; min-height: var(--tablet-action-height, 104px); border: none; border-radius: 28px; cursor: pointer;
         background: rgba(255,255,255,0.09); color: #fff; font: inherit; font-size: 20px; font-weight: 600;
-        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-        --mdc-icon-size: 36px; transition: background .2s; }
+        display: flex; flex-direction: var(--tablet-action-dir, column); align-items: center; justify-content: center; gap: 8px;
+        --mdc-icon-size: 30px; transition: background .2s; }
       button:active, button.done { background: rgba(255,255,255,0.28); }
+      :host([pill]) { display: flex; justify-content: flex-end; align-items: center; }
+      :host([pill]) ha-card { height: auto; }
+      :host([pill]) .content { display: flex; align-items: center; gap: 14px; }
+      :host([pill]) .label { font-size: 19px; font-weight: 600; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.5); }
+      :host([pill]) button { width: 52px; height: 52px; min-height: 0; padding: 0; border-radius: 50%;
+        --mdc-icon-size: 28px; background: rgba(16, 18, 40, 0.55);
+        backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+      :host([pill]) button:active, :host([pill]) button.done { background: rgba(255,255,255,0.35); }
+      ${press("button", 0.93)}
     `);
-    content.innerHTML = `<button>${c.icon ? `<ha-icon icon="${esc(c.icon)}"></ha-icon>` : ""}<span>${esc(c.name ?? "")}</span></button>`;
+    this.toggleAttribute("pill", !!c.pill);
+    const icon = c.icon ? `<ha-icon icon="${esc(c.icon)}"></ha-icon>` : "";
+    content.innerHTML = c.pill
+      ? `<span class="label">${esc(c.name ?? "")}</span><button aria-label="${esc(c.name ?? "")}">${icon}</button>`
+      : `<button>${icon}<span>${esc(c.name ?? "")}</span></button>`;
     const btn = content.querySelector("button");
     btn.addEventListener("click", () => {
       const [domain, service] = c.action.split(".");

@@ -9,7 +9,7 @@
 //     - kind: dishwasher   quiet (switch), operation, program, programs (id → label), finish, progress, door
 //     - kind: vacuum       entity, cleaning (binary_sensor), status, battery, progress
 
-import { ensureShell, esc } from "./shared.js";
+import { press, ensureShell, esc } from "./shared.js";
 
 const STATES = {
   washer: { off: "Aus", idle: "Bereit", starting: "Startet", running: "Läuft", paused: "Pausiert",
@@ -122,7 +122,7 @@ export class TabletAppliancesCard extends HTMLElement {
       :host { display: block; height: 100%; }
       ha-card { height: 100%; background: none; border: none; box-shadow: none; color: #fff; }
       .content { height: 100%; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 14px; }
-      .tile { position: relative; overflow: hidden; border-radius: 28px; padding: 16px 18px; box-sizing: border-box;
+      .tile { position: relative; overflow: hidden; border-radius: 28px; padding: 16px 20px; box-sizing: border-box;
         background: rgba(16, 18, 40, 0.46); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
         display: flex; flex-direction: column; justify-content: center; gap: 4px; min-width: 0; }
       .tile > :not(.progress) { position: relative; }
@@ -137,6 +137,7 @@ export class TabletAppliancesCard extends HTMLElement {
       .name { font-size: 21px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .status { font-size: 17px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .progress { position: absolute; inset: 0 auto 0 0; border-radius: inherit; opacity: .6; transition: width .5s; }
+      ${press(".buttons button", 0.88)}
     `);
     const views = this._config.items.map((item) => ({ item, ...this._view(item) }));
     const key = JSON.stringify(views.map(({ item, buttons, ...rest }) => [rest, buttons.map((b) => [b.icon, b.on])]));

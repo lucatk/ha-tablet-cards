@@ -17,7 +17,7 @@
 // which then drop to one column: a colour picker for a light, or the member
 // lights of a group (each with its own colour arrow).
 
-import { ensureShell, esc } from "./shared.js";
+import { POP, SPRING, press, ensureShell, esc } from "./shared.js";
 import "./light-color-card.js";
 import "./tablet-entity-card.js";
 
@@ -163,33 +163,38 @@ export class TabletRoomsCard extends HTMLElement {
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
         font-size: 26px; font-weight: 500; --mdc-icon-size: 76px; min-height: 0; }
       .tile:active { background: rgba(255,255,255,0.2); }
-      .room { height: 100%; display: flex; flex-direction: column; gap: 12px; border-radius: 32px; padding: 16px;
+      .room { height: 100%; display: flex; flex-direction: column; gap: 10px; border-radius: 32px; padding: 14px 16px;
         box-sizing: border-box; background: rgba(16, 18, 40, 0.45); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
       [hidden] { display: none !important; }
       .head { display: flex; align-items: center; gap: 18px; flex: none; }
       .back { border: none; font: inherit; font-size: 20px; font-weight: 600; color: #161830; background: #fff;
-        border-radius: 999px; height: 52px; padding: 0 24px 0 14px; display: flex; align-items: center; gap: 8px;
+        border-radius: 999px; height: 44px; padding: 0 20px 0 12px; display: flex; align-items: center; gap: 8px;
         --mdc-icon-size: 28px; cursor: pointer; }
-      .title { font-size: 30px; font-weight: 600; display: flex; align-items: center; gap: 12px; --mdc-icon-size: 34px; }
+      .title { font-size: 26px; font-weight: 600; display: flex; align-items: center; gap: 12px; --mdc-icon-size: 34px; }
       .body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); gap: 12px; }
       .body.split { grid-template-columns: 1fr 1fr; }
       .main { min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: auto;
-        --tablet-tile-height: 118px; --tablet-media-art: 88px; }
+        --tablet-tile-height: 132px; --tablet-media-art: 88px; }
       .sec-title { font-size: 14px; line-height: 20px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
         opacity: .7; padding-left: 8px; }
       .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
       .split .tiles, .one .tiles { grid-template-columns: 1fr; }
       .side { min-height: 0; border-radius: 28px; background: rgba(255,255,255,0.07); display: flex;
-        flex-direction: column; padding: 14px; box-sizing: border-box; animation: slide .25s ease-out; }
+        flex-direction: column; padding: 14px; box-sizing: border-box; animation: slide .4s ${SPRING}; }
       .side-head { flex: none; display: flex; align-items: center; gap: 10px; font-size: 21px; font-weight: 600; }
       .side-head span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 6px; }
       .side-head button { width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer;
         background: rgba(255,255,255,0.14); color: #fff; display: grid; place-items: center; --mdc-icon-size: 28px; }
       .side .card { flex: 1; min-height: 0; }
       .side .card.members { display: flex; flex-direction: column; gap: 10px; overflow: auto; padding-top: 12px; }
+      ${press(".tile", 0.95)}
+      ${press(".back, .side-head button", 0.9)}
+      ${POP}
+      .grid:not([hidden]) { animation: pop .45s ${SPRING}; }
+      .room:not([hidden]) { animation: pop .45s ${SPRING}; }
       @keyframes slide { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
       .actions { flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 12px;
-        --tablet-action-height: 66px; }
+        --tablet-action-height: 56px; --tablet-action-dir: row; }
     `);
     if (content.firstChild) return this._show();
     this._cards = [];

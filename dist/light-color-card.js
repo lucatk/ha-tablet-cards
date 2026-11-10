@@ -1,7 +1,7 @@
 // custom:light-color-card — colour wheel and colour-temperature slider for
 // one or more lights, shown in place (no more-info dialog).
 
-import { ensureShell, esc } from "./shared.js";
+import { press, ensureShell, esc } from "./shared.js";
 
 // The wheel is pure CSS: a conic hue gradient (0° = right, clockwise, matching
 // atan2 in screen coordinates) under a radial white-to-transparent fade for
@@ -222,6 +222,8 @@ export class LightColorCard extends HTMLElement {
       .bbar { flex: 1; width: 44px; border-radius: 22px; background: rgba(255,255,255,0.14); overflow: hidden;
         touch-action: none; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; }
       .blevel { width: 100%; background: #f5b041; border-radius: inherit; }
+      ${press(".chip, .scene", 0.92)}
+      ${press(".power", 0.88)}
     `);
     if (!content.firstChild || JSON.stringify(this._scenes()) !== this._sceneKey) this._build(content);
     const scenesMode = this._mode === "scenes";
