@@ -164,8 +164,10 @@ def grid(rooms_rows, extra_cards):
             "grid-template-rows": "212px 352px auto 1fr",
             "grid-template-areas": areas,
             "grid-gap": "14px",
-            "height": "calc(100vh - 22px)",
-            "padding": "18px 18px 0",
+            # HA pads the view by the status-bar inset on the tablet (28 px); subtract it.
+            "height": "calc(100vh - var(--safe-area-inset-top, 0px) - var(--safe-area-inset-bottom, 0px)"
+                      " - max(8px, calc(18px - var(--safe-area-inset-top, 0px))) - 4px)",
+            "padding": "max(8px, calc(18px - var(--safe-area-inset-top, 0px))) 18px 0",
             "margin": "0",
         },
         "cards": top_cards() + extra_cards,
