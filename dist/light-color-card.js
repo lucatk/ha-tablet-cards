@@ -62,6 +62,10 @@ export class LightColorCard extends HTMLElement {
       <div class="pick">
         <div class="wheel"><div class="disc"></div><div class="dot"></div></div>
         <div class="temp"><div class="knob"></div></div>
+        <div class="bright">
+          <button class="power"><ha-icon icon="mdi:power"></ha-icon></button>
+          <div class="bbar"><div class="blevel"></div></div>
+        </div>
       </div>`;
     content.querySelectorAll(".chip").forEach((b) =>
       b.addEventListener("click", () => {
@@ -95,6 +99,28 @@ export class LightColorCard extends HTMLElement {
       }
     };
     dragHandler(temp, (ev) => pickTemp(ev, false), (ev) => pickTemp(ev, true));
+    // Power and brightness for a single selected member of a group.
+    content.querySelector(".power").addEventListener("click", () =>
+      this._hass.callService("light", "toggle", { entity_id: this._targets() }),
+    );
+    const bbar = content.querySelector(".bbar");
+    const pickBright = (ev, commit) => {
+      const rect = bbar.getBoundingClientRect();
+      const pct = Math.max(1, Math.min(100, Math.round(((rect.bottom - ev.clientY) / rect.height) * 100)));
+      this._dragging = !commit;
+      this._brightPreview = commit ? undefined : pct;
+      this._placeBright(pct);
+      if (commit) this._call({ brightness_pct: pct });
+    };
+    dragHandler(bbar, (ev) => pickBright(ev, false), (ev) => pickBright(ev, true));
+  }
+
+  _placeBright(pct) {
+    const st = this._primary();
+    const on = st?.state === "on";
+    const level = pct ?? (on ? Math.round(((st.attributes.brightness ?? 255) / 255) * 100) : 0);
+    this.shadowRoot.querySelector(".blevel").style.height = `${level}%`;
+    this.shadowRoot.querySelector(".power").classList.toggle("on", on || pct !== undefined);
   }
 
   _kelvinRange() {
@@ -139,9 +165,9 @@ export class LightColorCard extends HTMLElement {
       .chips { flex: none; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
       .chip { flex: none; font: inherit; font-size: 16px; color: #fff; border: none; border-radius: 999px; padding: 8px 14px;
         background: rgba(255,255,255,0.10); cursor: pointer; white-space: nowrap; }
-      .pick { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; gap: 18px; }
+      .pick { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; gap: 14px; }
       .chip.on { background: #fff; color: #161830; font-weight: 600; }
-      .wheel { position: relative; height: 100%; max-height: 300px; aspect-ratio: 1; max-width: calc(100% - 62px); touch-action: none; }
+      .wheel { position: relative; height: 100%; max-height: 300px; aspect-ratio: 1; max-width: calc(100% - 124px); touch-action: none; }
       .disc { width: 100%; height: 100%; border-radius: 50%; background: ${WHEEL_BG}; }
       .dot { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%;
         border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.5); pointer-events: none; }
@@ -149,7 +175,14 @@ export class LightColorCard extends HTMLElement {
         background: linear-gradient(0deg, #ffa448, #fff1dc 55%, #cfe2ff); }
       .knob { position: absolute; left: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%;
         border: 3px solid #fff; background: transparent; box-shadow: 0 2px 8px rgba(0,0,0,.5); pointer-events: none; }
-      .temp.off { display: none; }
+      .temp.off, .bright.off { display: none; }
+      .bright { flex: none; height: 100%; max-height: 300px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+      .power { flex: none; width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer;
+        background: rgba(255,255,255,0.14); color: #fff; display: grid; place-items: center; --mdc-icon-size: 24px; }
+      .power.on { background: #fff; color: #161830; }
+      .bbar { flex: 1; width: 44px; border-radius: 22px; background: rgba(255,255,255,0.14); overflow: hidden;
+        touch-action: none; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; }
+      .blevel { width: 100%; background: #f5b041; border-radius: inherit; }
     `);
     if (!content.firstChild) this._build(content);
     const names = this._config.names;
@@ -162,6 +195,8 @@ export class LightColorCard extends HTMLElement {
     const st = this._primary();
     content.querySelector(".wheel").style.display = supportsColor(st) ? "" : "none";
     content.querySelector(".temp").classList.toggle("off", !supportsTemp(st));
+    content.querySelector(".bright").classList.toggle("off", this._selected === "all");
+    this._placeBright();
     this._preview = undefined;
     this._tempPreview = undefined;
     this._placeDot();

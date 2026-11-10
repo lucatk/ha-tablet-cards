@@ -1,5 +1,6 @@
 // custom:tablet-media-card — media player tile. Idle/off: a normal tile with
-// the state. Playing or paused: spans the full row and shows artwork, title,
+// the state. Playing or paused: one column wide, two tiles tall (placed first
+// so the room's other tiles fill the second column), with artwork, title,
 // artist, previous / play-pause / next and a vertical volume bar (drag to set).
 
 import { ensureShell, esc } from "./shared.js";
@@ -45,11 +46,15 @@ export class TabletMediaCard extends HTMLElement {
     }
     content.innerHTML = `
       <div class="player">
-        <div class="art"></div>
-        <div class="meta">
-          <div class="name"></div>
-          <div class="title"></div>
-          <div class="artist"></div>
+        <div class="col">
+          <div class="head">
+            <div class="art"></div>
+            <div class="meta">
+              <div class="name"></div>
+              <div class="title"></div>
+              <div class="artist"></div>
+            </div>
+          </div>
           <div class="controls">
             <button data-s="media_previous_track"><ha-icon icon="mdi:skip-previous"></ha-icon></button>
             <button class="main" data-s="media_play_pause"><ha-icon></ha-icon></button>
@@ -107,31 +112,34 @@ export class TabletMediaCard extends HTMLElement {
     if (!this.shadowRoot || !this._config || !this._hass) return;
     const st = this._hass.states[this._config.entity];
     const mode = st && ACTIVE.includes(st.state) ? "active" : "idle";
-    // Take the whole row of the room's two-column grid while playing.
-    this.style.gridColumn = mode === "active" ? "1 / -1" : "";
+    // While playing: two rows tall in one column, and first in the grid.
+    this.style.gridRow = mode === "active" ? "span 2" : "";
+    this.style.order = mode === "active" ? "-1" : "";
     const content = ensureShell(this.shadowRoot, `
       :host { display: block; }
       ha-card { background: none; border: none; box-shadow: none; color: #fff; }
       .tile { height: var(--tablet-tile-height, 128px); border-radius: 28px; background: rgba(255,255,255,0.09);
-        padding: 0 22px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
-      .icon { width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.14);
-        display: grid; place-items: center; --mdc-icon-size: 30px; margin-bottom: 4px; }
+        padding: 0 26px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 3px; }
+      .icon { width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.14);
+        display: grid; place-items: center; --mdc-icon-size: 26px; margin-bottom: 2px; }
       .name { font-size: 23px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .state, .artist { font-size: 18px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .player { border-radius: 28px; background: rgba(255,255,255,0.09); padding: 14px; box-sizing: border-box;
-        display: flex; gap: 22px; align-items: center; }
-      .art { flex: none; width: var(--tablet-media-art, 176px); height: var(--tablet-media-art, 176px); border-radius: 20px; overflow: hidden;
-        background: rgba(255,255,255,0.1); display: grid; place-items: center; --mdc-icon-size: 64px; }
+      .state, .artist { font-size: 17px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .player { height: calc(var(--tablet-tile-height, 128px) * 2 + 12px); border-radius: 28px; box-sizing: border-box;
+        background: rgba(255,255,255,0.09); padding: 18px; display: flex; gap: 14px; }
+      .col { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }
+      .head { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+      .art { flex: none; width: var(--tablet-media-art, 96px); height: var(--tablet-media-art, 96px); border-radius: 18px;
+        overflow: hidden; background: rgba(255,255,255,0.1); display: grid; place-items: center; --mdc-icon-size: 48px; }
       .art img { width: 100%; height: 100%; object-fit: cover; }
-      .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 1.2; }
-      .player .name { font-size: 14px; font-weight: 500; opacity: .7; text-transform: uppercase; letter-spacing: .06em; }
-      .title { font-size: 24px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .controls { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+      .meta { min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 1.2; }
+      .player .name { font-size: 13px; font-weight: 500; opacity: .7; text-transform: uppercase; letter-spacing: .06em; }
+      .title { font-size: 20px; font-weight: 700; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      .controls { display: flex; align-items: center; gap: 10px; }
       .controls button { width: 48px; height: 48px; border-radius: 50%; border: none; cursor: pointer;
-        background: rgba(255,255,255,0.14); color: #fff; display: grid; place-items: center; --mdc-icon-size: 32px; }
+        background: rgba(255,255,255,0.14); color: #fff; display: grid; place-items: center; --mdc-icon-size: 30px; }
       .controls button.main { background: #fff; color: #161830; }
-      .volume { flex: none; align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 8px; --mdc-icon-size: 24px; }
-      .bar { flex: 1; width: 44px; border-radius: 22px; background: rgba(255,255,255,0.14); overflow: hidden;
+      .volume { flex: none; display: flex; flex-direction: column; align-items: center; gap: 8px; --mdc-icon-size: 22px; }
+      .bar { flex: 1; width: 40px; border-radius: 20px; background: rgba(255,255,255,0.14); overflow: hidden;
         touch-action: none; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; }
       .level { width: 100%; background: rgba(255,255,255,0.85); border-radius: inherit; }
     `);

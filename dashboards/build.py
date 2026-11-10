@@ -31,7 +31,6 @@ ROOMS = [
         "key": "wohnzimmer", "name": "Wohnzimmer", "icon": "mdi:sofa-outline", "area": "r1",
         "entities": ["light.hue_filament_bulb_1", "media_player.wohnzimmer_beam"],
         "names": {"light.hue_filament_bulb_1": "TV Filament", "media_player.wohnzimmer_beam": "Sonos Beam"},
-        "columns": 1,
         "scenes": [("scene.wohnzimmer_wohnzimmer_bright", "Hell", "mdi:brightness-7"),
                    ("scene.wohnzimmer_wohnzimmer_dimmed", "Gedimmt", "mdi:brightness-5"),
                    ("scene.wohnzimmer_wohnzimmer_nightlight", "Nachtlicht", "mdi:weather-night")],

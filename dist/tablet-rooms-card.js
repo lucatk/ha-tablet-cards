@@ -169,8 +169,8 @@ export class TabletRoomsCard extends HTMLElement {
       .title { font-size: 30px; font-weight: 600; display: flex; align-items: center; gap: 12px; --mdc-icon-size: 34px; }
       .body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); gap: 12px; }
       .body.split { grid-template-columns: 1fr 1fr; }
-      .main { min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-content: start; overflow: auto;
-        --tablet-tile-height: 120px; --tablet-media-art: 112px; }
+      .main { min-height: 0; display: grid; grid-auto-flow: row dense; grid-template-columns: 1fr 1fr; gap: 12px; align-content: start; overflow: auto;
+        --tablet-tile-height: 140px; --tablet-media-art: 96px; }
       .split .main, .one .main { grid-template-columns: 1fr; }
       .side { min-height: 0; border-radius: 28px; background: rgba(255,255,255,0.07); display: flex;
         flex-direction: column; padding: 14px; box-sizing: border-box; animation: slide .25s ease-out; }
