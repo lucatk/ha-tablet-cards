@@ -69,7 +69,7 @@ export class TabletAppliancesCard extends HTMLElement {
       const active = v(item.running) === "on";
       const rem = Number(v(item.remaining));
       const status = active
-        ? [v(item.program), Number.isFinite(rem) && OK(v(item.remaining)) ? remaining(rem) : ""].filter(OK).join(" · ")
+        ? [Number.isFinite(rem) && OK(v(item.remaining)) ? remaining(rem) : "", v(item.program)].filter(OK).join(" · ")
         : this._fmt(item.state, "washer");
       return { status, active, progress: active ? Number(v(item.progress)) || 0 : null, buttons: [] };
     }
@@ -81,7 +81,7 @@ export class TabletAppliancesCard extends HTMLElement {
         const prog = item.programs?.[v(item.program)] ?? "Programm läuft";
         const finish = Date.parse(v(item.finish));
         const rem = Number.isFinite(finish) ? remaining((finish - Date.now()) / 60000) : "";
-        status = [prog, op === "delayedstart" ? "Startzeitvorwahl" : rem].filter(OK).join(" · ");
+        status = [op === "delayedstart" ? "Startzeitvorwahl" : rem, prog].filter(OK).join(" · ");
       } else if (v(item.door) === "open") {
         status = [status, "Tür offen"].filter(OK).join(" · ");
       }
