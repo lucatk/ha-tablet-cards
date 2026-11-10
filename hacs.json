@@ -1,0 +1,6 @@
+{
+  "name": "Tablet Cards (MVG, News, Clock)",
+  "filename": "ha-tablet-cards.js",
+  "render_readme": true,
+  "homeassistant": "2025.1.0"
+}
