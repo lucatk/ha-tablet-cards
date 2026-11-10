@@ -97,13 +97,24 @@ DISHWASHER_PROGRAMS = {
     "dishcare_dishwasher_program_pre_rinse": "Vorspülen",
 }
 
+# 20-column grid so the top row can split 9:11 (weather gets the wider half)
+# while news and MVG stay 10:10.
+def area_row(*parts):
+    return '"' + " ".join(" ".join([name] * span) for name, span in parts) + '"'
+
 def grid(rooms_rows, extra_cards):
-    areas = '"clock weather" "news mvg" "apps apps" ' + rooms_rows + ' "footer footer"'
+    areas = " ".join([
+        area_row(("clock", 9), ("weather", 11)),
+        area_row(("news", 10), ("mvg", 10)),
+        area_row(("apps", 20)),
+        area_row(("rooms", 20)),
+        area_row(("footer", 20)),
+    ])
     return {
         "type": "custom:layout-card",
         "layout_type": "custom:grid-layout",
         "layout": {
-            "grid-template-columns": "1fr 1fr",
+            "grid-template-columns": "repeat(20, minmax(0, 1fr))",
             "grid-template-rows": "196px 300px 150px minmax(0, 1fr) 56px",
             "grid-template-areas": areas,
             "grid-gap": "14px",

@@ -90,28 +90,61 @@ export class TabletWeatherCard extends HTMLElement {
     this._render();
   }
 
+  /**
+   * iOS-style next-hour precipitation chart: a smooth filled area over three
+   * dashed intensity lines (light / moderate / heavy), "Jetzt … 60 Min" axis.
+   */
   _rainHtml() {
     const rain = this._rain ?? [];
     const wet = rain.filter((r) => r.mmh >= 0.1);
     if (!wet.length) return "";
     const fmt = (t) => new Date(t).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-    const raining = rain[0]?.mmh >= 0.1;
     let label;
-    if (raining) {
+    if (rain[0].mmh >= 0.1) {
       // End of the last rain in the window, so short breaks don't end it early.
       const last = wet[wet.length - 1];
-      const ends = last !== rain[rain.length - 1] ? last.t + 5 * 60_000 : null;
-      label = ends ? `Regen bis ${fmt(ends)}` : "Regen hält an";
+      label = last !== rain[rain.length - 1] ? `Regen bis ${fmt(last.t + 5 * 60_000)}` : "Regen hält an";
     } else {
       label = `Regen ab ${fmt(wet[0].t)}`;
     }
-    // Bar height: light < 1 mm/h, moderate < 4, heavy above (log-ish scale like iOS).
-    const h = (mmh) => (mmh < 0.1 ? 4 : Math.min(100, 25 + Math.log2(1 + mmh) * 25));
-    const bars = rain.map((r) => `<span style="height:${h(r.mmh)}%" class="${r.mmh >= 0.1 ? "wet" : ""}"></span>`).join("");
+    // Intensity → height, piecewise like iOS: light < 2.5 mm/h, moderate < 7.6, heavy above.
+    // Light rain gets a visible minimum (iOS shows drizzle as a low hill, not a flat line).
+    const level = (mmh) =>
+      mmh < 0.1 ? 0
+        : mmh < 2.5 ? Math.max(0.16, Math.sqrt(mmh / 2.5) / 3)
+          : mmh < 7.6 ? 1 / 3 + ((mmh - 2.5) / 5.1) / 3
+            : Math.min(1, 2 / 3 + ((mmh - 7.6) / 12) / 3);
+    const W = 200, H = 64, top = 4;
+    const t0 = rain[0].t;
+    const span = Math.max(1, rain[rain.length - 1].t - t0);
+    const pts = rain.map((r) => [((r.t - t0) / span) * W, H - level(r.mmh) * (H - top)]);
+    // Catmull-Rom → cubic Bézier for a smooth curve.
+    let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] ?? pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] ?? p2;
+      const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+      const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+      // Clamp control points to the baseline so the curve never dips below zero.
+      const pt = ([x, y]) => `${x.toFixed(1)} ${Math.min(H, y).toFixed(1)}`;
+      d += ` C ${pt(c1)} ${pt(c2)} ${pt(p2)}`;
+    }
+    const grid = [1, 2, 3].map((k) => {
+      const y = H - (k / 3) * (H - top);
+      return `<line x1="0" x2="${W}" y1="${y}" y2="${y}" />`;
+    }).join("");
     return `
       <div class="rain">
-        <div class="rain-label"><ha-icon icon="mdi:umbrella"></ha-icon>${esc(label)}</div>
-        <div class="bars">${bars}</div>
+        <div class="rain-label">${esc(label)}</div>
+        <div class="chart">
+          <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+            <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#5ab0ff" stop-opacity=".95"/><stop offset="1" stop-color="#2f80ed" stop-opacity=".35"/>
+            </linearGradient></defs>
+            <g class="grid">${grid}</g>
+            <path class="area" d="${d} L ${W} ${H} L 0 ${H} Z"/>
+            <path class="line" d="${d}"/>
+          </svg>
+        </div>
         <div class="axis"><span>Jetzt</span><span>30</span><span>60 Min</span></div>
       </div>`;
   }
@@ -121,31 +154,32 @@ export class TabletWeatherCard extends HTMLElement {
     const st = this._hass.states[this._config.entity];
     const content = ensureShell(this.shadowRoot, `
       :host { display: block; height: 100%; }
-      ha-card { height: 100%; box-sizing: border-box; padding: 16px 18px 12px; color: #fff; }
-      .content { height: 100%; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; }
-      .now { display: flex; align-items: center; gap: 10px; min-width: 0; }
-      .now > ha-icon { --mdc-icon-size: 46px; flex: none; }
-      .cond { flex: 1; min-width: 0; font-size: 24px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      ha-card { height: 100%; box-sizing: border-box; padding: 16px 22px 14px; color: #fff; }
+      .content { height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
+      .now { display: flex; align-items: flex-start; gap: 16px; min-width: 0; }
+      .cond { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+      .cond ha-icon { --mdc-icon-size: 40px; }
+      .cond-text { font-size: 22px; font-weight: 700; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .temps { flex: none; text-align: right; }
-      .temp { font-size: 30px; font-weight: 300; line-height: 1; }
-      .hilo { display: flex; gap: 6px; justify-content: flex-end; font-size: 16px; opacity: .85; margin-top: 4px;
-        --mdc-icon-size: 16px; }
+      .temp { font-size: 42px; font-weight: 300; line-height: 1; letter-spacing: -0.02em; }
+      .hilo { display: flex; gap: 8px; justify-content: flex-end; font-size: 16px; font-weight: 500; opacity: .85;
+        margin-top: 6px; --mdc-icon-size: 15px; }
       .hilo span { display: inline-flex; align-items: center; }
-      .rain { flex: none; width: 128px; margin-left: 6px; }
-      .rain-label { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; white-space: nowrap;
-        --mdc-icon-size: 14px; color: #9fd0ff; }
-      .bars { height: 34px; display: flex; align-items: flex-end; gap: 2px; margin-top: 4px;
-        border-bottom: 1px solid rgba(255,255,255,0.3); }
-      .bars span { flex: 1; border-radius: 2px 2px 0 0; background: rgba(255,255,255,0.25); }
-      .bars span.wet { background: #5aa9ff; }
-      .axis { display: flex; justify-content: space-between; font-size: 11px; opacity: .7; margin-top: 2px; }
-      .days { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; text-align: center; }
+      .rain { flex: none; width: 168px; }
+      .rain-label { font-size: 14px; font-weight: 700; white-space: nowrap; color: #fff; margin-bottom: 6px; }
+      .chart { position: relative; height: 40px; }
+      .chart svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+      .grid line { stroke: rgba(255,255,255,.28); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+      .area { fill: url(#rg); }
+      .line { fill: none; stroke: #8cc8ff; stroke-width: 2; vector-effect: non-scaling-stroke; }
+      .axis { display: flex; justify-content: space-between; font-size: 11px; font-weight: 500; opacity: .7; margin-top: 3px; }
+      .days { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
       .day { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-      .day .dname { font-size: 15px; opacity: .75; }
-      .day ha-icon { --mdc-icon-size: 34px; margin: 2px 0; }
+      .day .dname { font-size: 15px; font-weight: 500; opacity: .75; }
+      .day ha-icon { --mdc-icon-size: 30px; }
       .day .t { display: flex; gap: 8px; align-items: baseline; }
       .day .hi { font-size: 19px; font-weight: 600; }
-      .day .lo { font-size: 17px; opacity: .6; }
+      .day .lo { font-size: 17px; opacity: .55; }
     `);
     if (!st) return void (content.textContent = "Wetter nicht gefunden");
     const [label, icon, color] = cond(st.state);
@@ -154,13 +188,15 @@ export class TabletWeatherCard extends HTMLElement {
     const dayName = (iso, i) => (i === 0 ? "Heute" : new Date(iso).toLocaleDateString("de-DE", { weekday: "short" }).replace(".", ""));
     const html = `
       <div class="now">
-        <ha-icon icon="${icon}" style="color:${color}"></ha-icon>
-        <div class="cond">${esc(label)}</div>
+        <div class="cond">
+          <ha-icon icon="${icon}" style="color:${color}"></ha-icon>
+          <div class="cond-text">${esc(label)}</div>
+        </div>
         <div class="temps">
           <div class="temp">${deg(st.attributes.temperature)}</div>
           <div class="hilo">
-            <span><ha-icon icon="mdi:arrow-up-thin"></ha-icon>${deg(today?.temperature)}</span>
-            <span><ha-icon icon="mdi:arrow-down-thin"></ha-icon>${deg(today?.templow)}</span>
+            <span><ha-icon icon="mdi:arrow-up"></ha-icon>${deg(today?.temperature)}</span>
+            <span><ha-icon icon="mdi:arrow-down"></ha-icon>${deg(today?.templow)}</span>
           </div>
         </div>
         ${this._rainHtml()}
