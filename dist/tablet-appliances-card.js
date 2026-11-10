@@ -9,7 +9,7 @@
 //     - kind: dishwasher   quiet (switch), operation, program, programs (id → label), finish, progress, door
 //     - kind: vacuum       entity, cleaning (binary_sensor), status, battery, progress
 
-import { press, ensureShell, esc } from "./shared.js";
+import { MARQUEE_CSS, marquee, press, remaining, ensureShell, esc } from "./shared.js";
 
 const STATES = {
   washer: { off: "Aus", idle: "Bereit", starting: "Startet", running: "Läuft", paused: "Pausiert",
@@ -69,7 +69,7 @@ export class TabletAppliancesCard extends HTMLElement {
       const active = v(item.running) === "on";
       const rem = Number(v(item.remaining));
       const status = active
-        ? [v(item.program), Number.isFinite(rem) && OK(v(item.remaining)) ? `noch ${Math.round(rem)} min` : ""].filter(OK).join(" · ")
+        ? [v(item.program), Number.isFinite(rem) && OK(v(item.remaining)) ? remaining(rem) : ""].filter(OK).join(" · ")
         : this._fmt(item.state, "washer");
       return { status, active, progress: active ? Number(v(item.progress)) || 0 : null, buttons: [] };
     }
@@ -80,7 +80,7 @@ export class TabletAppliancesCard extends HTMLElement {
       if (active) {
         const prog = item.programs?.[v(item.program)] ?? "Programm läuft";
         const finish = Date.parse(v(item.finish));
-        const rem = Number.isFinite(finish) ? `noch ${Math.max(0, Math.round((finish - Date.now()) / 60000))} min` : "";
+        const rem = Number.isFinite(finish) ? remaining((finish - Date.now()) / 60000) : "";
         status = [prog, op === "delayedstart" ? "Startzeitvorwahl" : rem].filter(OK).join(" · ");
       } else if (v(item.door) === "open") {
         status = [status, "Tür offen"].filter(OK).join(" · ");
@@ -134,8 +134,9 @@ export class TabletAppliancesCard extends HTMLElement {
       .buttons button { width: 48px; height: 48px; border-radius: 50%; border: none; cursor: pointer;
         background: rgba(255,255,255,0.14); color: #fff; display: grid; place-items: center; --mdc-icon-size: 26px; }
       .buttons button.on { background: #fff; color: #161830; }
-      .name { font-size: 21px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .status { font-size: 17px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .name { font-size: 21px; font-weight: 600; white-space: nowrap; overflow: hidden; }
+      .status { font-size: 17px; opacity: .85; white-space: nowrap; overflow: hidden; }
+      ${MARQUEE_CSS}
       .progress { position: absolute; inset: 0 auto 0 0; border-radius: inherit; opacity: .6; transition: width .5s; }
       ${press(".buttons button", 0.88)}
     `);
@@ -157,6 +158,8 @@ export class TabletAppliancesCard extends HTMLElement {
           <div class="status">${esc(status || "–")}</div>
         </div>`)
       .join("");
+    // Status or name too long for the tile: scroll it sideways instead of cutting it off.
+    requestAnimationFrame(() => marquee(content.querySelectorAll(".name, .status")));
     content.querySelectorAll("button").forEach((btn) =>
       btn.addEventListener("click", () => {
         const [domain, service, data] = views[btn.dataset.i].buttons[btn.dataset.j].call;
