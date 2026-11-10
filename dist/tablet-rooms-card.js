@@ -7,7 +7,10 @@
 //   rooms:
 //     - name: Esstisch
 //       icon: mdi:table-chair
-//       main: [<card>, …]      device tiles, two columns (`columns: 1` for one)
+//       sections:              titled groups of device tiles, two columns each
+//         - title: Licht
+//           cards: [<card>, …]
+//       main: [<card>, …]      alternative: one untitled group
 //       actions: [<card>, …]   optional bottom row, equal-width columns
 //
 // A tile's arrow (tablet-detail event) opens a side panel next to the tiles,
@@ -115,7 +118,8 @@ export class TabletRoomsCard extends HTMLElement {
       });
     } else {
       const picker = document.createElement("light-color-card");
-      picker.setConfig({ entities: d.entities ?? [d.entity], names: d.names ?? {} });
+      // The tile's own light is the Hue group whose scenes the picker offers.
+      picker.setConfig({ entities: d.entities ?? [d.entity], names: d.names ?? {}, scene_group: d.entity });
       host.append(this._track(picker));
     }
     side.querySelector(".side-close").addEventListener("click", () => this._closeDetail());
@@ -169,9 +173,12 @@ export class TabletRoomsCard extends HTMLElement {
       .title { font-size: 30px; font-weight: 600; display: flex; align-items: center; gap: 12px; --mdc-icon-size: 34px; }
       .body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); gap: 12px; }
       .body.split { grid-template-columns: 1fr 1fr; }
-      .main { min-height: 0; display: grid; grid-auto-flow: row dense; grid-template-columns: 1fr 1fr; gap: 12px; align-content: start; overflow: auto;
-        --tablet-tile-height: 140px; --tablet-media-art: 96px; }
-      .split .main, .one .main { grid-template-columns: 1fr; }
+      .main { min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: auto;
+        --tablet-tile-height: 118px; --tablet-media-art: 88px; }
+      .sec-title { font-size: 14px; line-height: 20px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em;
+        opacity: .7; padding-left: 8px; }
+      .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .split .tiles, .one .tiles { grid-template-columns: 1fr; }
       .side { min-height: 0; border-radius: 28px; background: rgba(255,255,255,0.07); display: flex;
         flex-direction: column; padding: 14px; box-sizing: border-box; animation: slide .25s ease-out; }
       .side-head { flex: none; display: flex; align-items: center; gap: 10px; font-size: 21px; font-weight: 600; }
@@ -182,7 +189,7 @@ export class TabletRoomsCard extends HTMLElement {
       .side .card.members { display: flex; flex-direction: column; gap: 10px; overflow: auto; padding-top: 12px; }
       @keyframes slide { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
       .actions { flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 12px;
-        --tablet-action-height: 74px; }
+        --tablet-action-height: 66px; }
     `);
     if (content.firstChild) return this._show();
     this._cards = [];
@@ -223,10 +230,16 @@ export class TabletRoomsCard extends HTMLElement {
     // Mount the room cards in the background so a tap only switches visibility.
     content.querySelectorAll(".room").forEach(async (el, i) => {
       const room = rooms[i];
-      for (const [sel, configs] of [[".main", room.main], [".actions", room.actions]]) {
-        const host = el.querySelector(sel);
-        if (host) for (const card of await this._makeCards(configs)) host.append(card);
+      const main = el.querySelector(".main");
+      for (const sec of room.sections ?? [{ cards: room.main }]) {
+        if (sec.title) main.insertAdjacentHTML("beforeend", `<div class="sec-title">${esc(sec.title)}</div>`);
+        const tiles = document.createElement("div");
+        tiles.className = "tiles";
+        main.append(tiles);
+        for (const card of await this._makeCards(sec.cards)) tiles.append(card);
       }
+      const actions = el.querySelector(".actions");
+      if (actions) for (const card of await this._makeCards(room.actions)) actions.append(card);
     });
   }
 }

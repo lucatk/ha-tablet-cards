@@ -21,6 +21,11 @@ export function hsToRgb(h, s) {
 
 const supportsColor = (st) =>
   (st?.attributes?.supported_color_modes ?? []).some((m) => ["hs", "xy", "rgb", "rgbw", "rgbww"].includes(m));
+// Hue scene names as Home Assistant reports them, in German.
+const SCENE_DE = { Relax: "Entspannen", Concentrate: "Konzentrieren", Energize: "Aktivieren", Read: "Lesen",
+  Nightlight: "Nachtlicht", Rest: "Ruhe", "Natural light": "Natürliches Licht", Bright: "Hell",
+  Dimmed: "Gedimmt", "All Bright": "Alles hell" };
+
 const supportsTemp = (st) => (st?.attributes?.supported_color_modes ?? []).includes("color_temp");
 
 export class LightColorCard extends HTMLElement {
@@ -29,6 +34,7 @@ export class LightColorCard extends HTMLElement {
     if (!entities.length) throw new Error("light-color-card: `entities` required");
     this._config = { names: {}, ...config, entities };
     this._selected = "all";
+    this._mode = "color";
     if (this.shadowRoot) this.shadowRoot.innerHTML = "";
   }
 
@@ -46,6 +52,17 @@ export class LightColorCard extends HTMLElement {
     this._render();
   }
 
+  /** Hue scenes of `scene_group` (scene entities whose group_name matches the group light). */
+  _scenes() {
+    const group = this._hass?.states[this._config.scene_group];
+    if (!group) return [];
+    const name = group.attributes.friendly_name;
+    return Object.values(this._hass.states)
+      .filter((st) => st.entity_id.startsWith("scene.") && st.attributes.group_name === name)
+      .map((st) => ({ entity: st.entity_id, name: SCENE_DE[st.attributes.name] ?? st.attributes.name ?? st.entity_id }))
+      .sort((a, b) => a.name.localeCompare(b.name, "de"));
+  }
+
   _targets() {
     return this._selected === "all" ? this._config.entities : [this._selected];
   }
@@ -56,9 +73,14 @@ export class LightColorCard extends HTMLElement {
 
   _build(content) {
     const many = this._config.entities.length > 1;
+    const scenes = this._scenes();
+    this._sceneKey = JSON.stringify(scenes);
+    const chips = many ? ["all", ...this._config.entities].map((e) => `<button class="chip" data-e="${esc(e)}"></button>`) : [];
+    if (scenes.length) chips.push(`<button class="chip mode"><ha-icon icon="mdi:palette-swatch"></ha-icon>Szenen</button>`);
     content.innerHTML = `
-      ${many ? `<div class="chips">${["all", ...this._config.entities]
-        .map((e) => `<button class="chip" data-e="${esc(e)}"></button>`).join("")}</div>` : ""}
+      ${chips.length ? `<div class="chips">${chips.join("")}</div>` : ""}
+      <div class="scenes">${scenes
+        .map((sc) => `<button class="scene" data-s="${esc(sc.entity)}">${esc(sc.name)}</button>`).join("")}</div>
       <div class="pick">
         <div class="wheel"><div class="disc"></div><div class="dot"></div></div>
         <div class="temp"><div class="knob"></div></div>
@@ -67,10 +89,21 @@ export class LightColorCard extends HTMLElement {
           <div class="bbar"><div class="blevel"></div></div>
         </div>
       </div>`;
-    content.querySelectorAll(".chip").forEach((b) =>
+    content.querySelectorAll(".chip[data-e]").forEach((b) =>
       b.addEventListener("click", () => {
         this._selected = b.dataset.e;
+        this._mode = "color";
         this._render();
+      }),
+    );
+    content.querySelector(".chip.mode")?.addEventListener("click", () => {
+      this._mode = this._mode === "scenes" ? "color" : "scenes";
+      this._render();
+    });
+    content.querySelectorAll(".scene").forEach((b) =>
+      b.addEventListener("click", () => {
+        this._hass.callService("scene", "turn_on", { entity_id: b.dataset.s });
+        content.querySelectorAll(".scene").forEach((x) => x.classList.toggle("on", x === b));
       }),
     );
     const wheel = content.querySelector(".wheel");
@@ -176,6 +209,12 @@ export class LightColorCard extends HTMLElement {
       .knob { position: absolute; left: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%;
         border: 3px solid #fff; background: transparent; box-shadow: 0 2px 8px rgba(0,0,0,.5); pointer-events: none; }
       .temp.off, .bright.off { display: none; }
+      .chip.mode { display: flex; align-items: center; gap: 6px; --mdc-icon-size: 18px; margin-left: auto; }
+      .scenes { flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+        align-content: start; }
+      .scene { font: inherit; font-size: 17px; font-weight: 600; color: #fff; border: none; border-radius: 20px;
+        min-height: 56px; padding: 8px 12px; background: rgba(255,255,255,0.10); cursor: pointer; }
+      .scene.on { background: #fff; color: #161830; }
       .bright { flex: none; height: 100%; max-height: 300px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
       .power { flex: none; width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer;
         background: rgba(255,255,255,0.14); color: #fff; display: grid; place-items: center; --mdc-icon-size: 24px; }
@@ -184,12 +223,16 @@ export class LightColorCard extends HTMLElement {
         touch-action: none; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; }
       .blevel { width: 100%; background: #f5b041; border-radius: inherit; }
     `);
-    if (!content.firstChild) this._build(content);
+    if (!content.firstChild || JSON.stringify(this._scenes()) !== this._sceneKey) this._build(content);
+    const scenesMode = this._mode === "scenes";
+    content.querySelector(".scenes").style.display = scenesMode ? "" : "none";
+    content.querySelector(".pick").style.display = scenesMode ? "none" : "";
+    content.querySelector(".chip.mode")?.classList.toggle("on", scenesMode);
     const names = this._config.names;
-    content.querySelectorAll(".chip").forEach((b) => {
+    content.querySelectorAll(".chip[data-e]").forEach((b) => {
       const e = b.dataset.e;
       b.textContent = e === "all" ? "Alle" : names[e] ?? this._hass.states[e]?.attributes.friendly_name ?? e;
-      b.classList.toggle("on", e === this._selected);
+      b.classList.toggle("on", !scenesMode && e === this._selected);
     });
     if (this._dragging) return;
     const st = this._primary();

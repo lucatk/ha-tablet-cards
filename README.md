@@ -63,7 +63,9 @@ columns: 3
 rooms:
   - name: Esstisch
     icon: mdi:table-chair
-    main:            # device tiles, two columns
+    sections:        # titled groups of tiles, two columns each
+      - title: Licht
+        cards:
       - type: custom:tablet-entity-card
         entity: light.hue_esstisch
         detail: color
@@ -78,7 +80,7 @@ rooms:
 - `custom:tablet-entity-card` — large tile (icon, name, state). Dimmable lights: tap toggles, drag sideways sets brightness. Lights/switches: tap toggles. Other entities: state only. `detail: color` adds an arrow that opens a colour picker next to the tiles; `detail: members` opens the member lights of a group (each with its own colour arrow).
 - `custom:tablet-media-card` — media player tile; while playing/paused it spans the row with artwork, title, previous/play-pause/next and a volume bar.
 - `custom:tablet-action-card` — large button calling `action` (`domain.service`) with optional `data` / `target`.
-- `custom:light-color-card` — colour wheel and colour-temperature slider for one or more lights (`names` maps entity → chip label).
+- `custom:light-color-card` — colour wheel and colour-temperature slider for one or more lights (`names` maps entity → chip label). With a single member selected it adds power and brightness. `scene_group: light.<hue group>` adds a "Szenen" chip listing that group's Hue scenes.
 
 ## `custom:tablet-appliances-card`
 

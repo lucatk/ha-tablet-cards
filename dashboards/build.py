@@ -145,8 +145,16 @@ def tile(entity, names, room_entities):
 
 def room_config(room):
     names = room.get("names", {})
-    cfg = {"name": room["name"], "icon": room["icon"],
-           "main": [tile(e, names, room["entities"]) for e in room["entities"]]}
+    # Lights first, then other devices, then media — each under its own heading.
+    groups = [("Licht", lambda e: e.startswith("light.")),
+              ("Geräte", lambda e: not e.startswith(("light.", "media_player."))),
+              ("Medien", lambda e: e.startswith("media_player."))]
+    sections = []
+    for title, match in groups:
+        cards = [tile(e, names, room["entities"]) for e in room["entities"] if match(e)]
+        if cards:
+            sections.append({"title": title, "cards": cards})
+    cfg = {"name": room["name"], "icon": room["icon"], "sections": sections}
     if room.get("columns"):
         cfg["columns"] = room["columns"]
     actions = action_cards(room)
