@@ -166,7 +166,7 @@ APPLIANCES = {
          "remaining": "sensor.unnamed_room_waschmaschine_time_remaining",
          "progress": "sensor.unnamed_room_waschmaschine_progress"},
         {"kind": "dishwasher", "name": "Spülmaschine", "icon": "mdi:dishwasher",
-         "power": "switch.spuli_power", "operation": "sensor.spuli_operation_state",
+         "quiet": "switch.kuche_spuli_silence_on_demand", "operation": "sensor.spuli_operation_state",
          "program": "select.spuli_active_program", "programs": DISHWASHER_PROGRAMS,
          "finish": "sensor.spuli_program_finish_time", "progress": "sensor.spuli_program_progress",
          "door": "sensor.spuli_door"},

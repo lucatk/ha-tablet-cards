@@ -6,7 +6,7 @@
 //
 //   items:
 //     - kind: washer       running, state, program, remaining (min), progress (%)
-//     - kind: dishwasher   power, operation, program, programs (id → label), finish, progress, door
+//     - kind: dishwasher   quiet (switch), operation, program, programs (id → label), finish, progress, door
 //     - kind: vacuum       entity, cleaning (binary_sensor), status, battery, progress
 
 import { ensureShell, esc } from "./shared.js";
@@ -85,10 +85,12 @@ export class TabletAppliancesCard extends HTMLElement {
       } else if (v(item.door) === "open") {
         status = [status, "Tür offen"].filter(OK).join(" · ");
       }
-      const power = v(item.power) === "on";
+      // Only control: quiet mode ("silence on demand"), and only while a program runs.
+      const quiet = v(item.quiet);
+      const canQuiet = op === "run" && item.quiet && quiet !== "unavailable";
       return {
         status, active, progress: active ? Number(v(item.progress)) || 0 : null,
-        buttons: item.power ? [{ icon: "mdi:power", on: power, call: ["switch", "toggle", { entity_id: item.power }] }] : [],
+        buttons: canQuiet ? [{ icon: "mdi:volume-off", on: quiet === "on", call: ["switch", "toggle", { entity_id: item.quiet }] }] : [],
       };
     }
     // vacuum — the vacuum entity stays "docked" while a job starts (mop
