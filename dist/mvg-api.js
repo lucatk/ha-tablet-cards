@@ -28,12 +28,13 @@ export async function findStation(query, signal) {
 }
 
 export async function fetchDepartures(stationId, { limit, offset, transportTypes }, signal) {
-  // The API applies `limit` after the transport-type filter, so over-fetch
-  // when the caller filtered and slice afterwards.
+  // With a transport-type filter the API can return fewer than `limit`
+  // matches (at Universität, 12 requested U-Bahn departures came back as 3
+  // because of the many buses), so over-fetch generously and slice afterwards.
   const filtered = !!transportTypes;
   const url = new URL(`${FIB_BASE}/departures`);
   url.searchParams.set("globalId", stationId);
-  url.searchParams.set("limit", String(filtered ? Math.min(100, limit * 3) : limit));
+  url.searchParams.set("limit", String(filtered ? Math.min(100, limit * 10) : limit));
   url.searchParams.set("offsetInMinutes", String(offset));
   url.searchParams.set("transportTypes", (transportTypes ?? ALL_TRANSPORT_TYPES).join(","));
   const r = await apiGet(url, signal);

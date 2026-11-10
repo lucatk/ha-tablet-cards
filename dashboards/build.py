@@ -76,14 +76,8 @@ def top_cards():
     return [
         {"type": "custom:tablet-clock-card", "view_layout": {"grid-area": "clock"},
          "card_mod": glass("ha-card { padding: 26px 30px !important; }")},
-        {"type": "weather-forecast", "entity": "weather.forecast_home", "name": "München",
-         "forecast_type": "daily", "forecast_slots": 4, "show_current": True, "show_forecast": True,
-         "view_layout": {"grid-area": "weather"},
-         "card_mod": glass("""
-ha-card { padding: 4px 12px; display: flex; flex-direction: column; justify-content: center; }
-ha-card, .name, .attribute, .temp-attribute, .forecast .templow { color: #fff !important; }
-.forecast .templow { opacity: 0.6; }
-""")},
+        {"type": "custom:tablet-weather-card", "entity": "weather.forecast_home", "days": 4,
+         "view_layout": {"grid-area": "weather"}, "card_mod": glass()},
         {"type": "custom:news-ticker-card", "interval_seconds": 12,
          "sources": [{"name": "ZDFheute", "prefix": "sensor.news_zdf_"},
                      {"name": "SZ München", "prefix": "sensor.news_sz_"}],

@@ -10,6 +10,7 @@
 //   custom:bing-wallpaper-card  Bing image of the day as background
 //   custom:tablet-media-card    media tile, full player while playing
 //   custom:tablet-appliances-card  washer / dishwasher / vacuum tiles
+//   custom:tablet-weather-card  weather, forecast, rain radar for the next hour
 //
 // Plain web components (ES modules), no build step and no dependencies.
 
@@ -22,8 +23,9 @@ import { TabletRoomsCard } from "./tablet-rooms-card.js";
 import { BingWallpaperCard } from "./bing-wallpaper-card.js";
 import { TabletMediaCard } from "./tablet-media-card.js";
 import { TabletAppliancesCard } from "./tablet-appliances-card.js";
+import { TabletWeatherCard } from "./tablet-weather-card.js";
 
-const VERSION = "1.7.1";
+const VERSION = "1.8.0";
 
 customElements.define("mvg-departures-card", MvgDeparturesCard);
 customElements.define("news-ticker-card", NewsTickerCard);
@@ -35,6 +37,7 @@ customElements.define("tablet-rooms-card", TabletRoomsCard);
 customElements.define("bing-wallpaper-card", BingWallpaperCard);
 customElements.define("tablet-media-card", TabletMediaCard);
 customElements.define("tablet-appliances-card", TabletAppliancesCard);
+customElements.define("tablet-weather-card", TabletWeatherCard);
 
 window.customCards = window.customCards || [];
 window.customCards.push(
@@ -47,6 +50,7 @@ window.customCards.push(
   { type: "tablet-rooms-card", name: "Tablet Rooms", description: "Room grid that opens rooms in place" },
   { type: "tablet-media-card", name: "Tablet Media", description: "Media tile; full player while playing" },
   { type: "tablet-appliances-card", name: "Tablet Appliances", description: "Washer, dishwasher and vacuum status with controls" },
+  { type: "tablet-weather-card", name: "Tablet Weather", description: "Weather, 4-day forecast and rain in the next hour" },
   { type: "bing-wallpaper-card", name: "Bing Wallpaper", description: "Full-screen Bing image of the day as background" },
 );
 

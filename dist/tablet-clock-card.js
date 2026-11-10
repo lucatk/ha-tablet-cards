@@ -28,14 +28,14 @@ export class TabletClockCard extends HTMLElement {
     if (!this.shadowRoot) return;
     const now = new Date();
     const loc = this._config?.locale ?? "de-DE";
-    const date = now.toLocaleDateString(loc, { weekday: "short", day: "numeric", month: "short" });
+    const date = now.toLocaleDateString(loc, { weekday: "short", day: "numeric", month: "long", year: "numeric" });
     const pad = (n) => String(n).padStart(2, "0");
     if (!this._built) {
       ensureShell(this.shadowRoot, `
           :host { display: block; height: 100%; }
           ha-card { height: 100%; box-sizing: border-box; padding: 24px 28px; color: #fff; }
           .content { height: 100%; display: flex; flex-direction: column; justify-content: center; }
-          .date { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+          .date { font-size: 23px; font-weight: 600; margin-bottom: 6px; }
           .time { font-size: 88px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
           .sec { font-size: 34px; font-weight: 400; opacity: 0.7; margin-left: 6px; }
       `).innerHTML = `<div class="date"></div><div><span class="time"></span><span class="sec"></span></div>`;

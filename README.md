@@ -86,6 +86,16 @@ rooms:
 
 Row of appliance tiles (washer, dishwasher, vacuum) with status, a progress bar while running and round control buttons. See `dashboards/build.py` for the entity keys of each `kind`.
 
+## `custom:tablet-weather-card`
+
+Current condition (bold), temperature with today's high/low, a 4-day forecast, and — only when rain is falling or expected within the hour — an iOS-style rain chart from DWD radar via [Bright Sky](https://brightsky.dev) for HA's home location.
+
+```yaml
+type: custom:tablet-weather-card
+entity: weather.forecast_home
+days: 4
+```
+
 ## `custom:bing-wallpaper-card`
 
 Full-screen Bing image of the day as background (via [bing-wallpaper](https://github.com/TimothyYe/bing-wallpaper)); takes no space.
