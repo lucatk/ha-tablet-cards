@@ -49,3 +49,11 @@ Large clock with date and seconds.
 type: custom:tablet-clock-card
 locale: de-DE
 ```
+
+## Dashboards
+
+`dashboards/build.py` generates the two tablet dashboards (`/dashboard-tablet` with browser_mod popups, `/dashboard-tablet-bubble` with Bubble Card pop-ups) and saves them through the Home Assistant websocket API. Requires `websockets` and an admin token in `HA_TOKEN`.
+
+```sh
+HA_TOKEN=… python dashboards/build.py
+```
