@@ -215,7 +215,8 @@ export class TabletActionCard extends HTMLElement {
       :host([pill]) { display: flex; justify-content: flex-end; align-items: center; }
       :host([pill]) ha-card { height: auto; }
       :host([pill]) .content { display: flex; align-items: center; gap: 14px; }
-      :host([pill]) .label { font-size: 19px; font-weight: 600; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.5); }
+      :host([pill]) .label { font-size: 19px; font-weight: 600; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.5);
+        cursor: pointer; padding: 14px 0 14px 14px; user-select: none; }
       :host([pill]) button { width: 52px; height: 52px; min-height: 0; padding: 0; border-radius: 50%;
         --mdc-icon-size: 28px; background: rgba(16, 18, 40, 0.55);
         backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
@@ -228,6 +229,8 @@ export class TabletActionCard extends HTMLElement {
       ? `<span class="label">${esc(c.name ?? "")}</span><button aria-label="${esc(c.name ?? "")}">${icon}</button>`
       : `<button>${icon}<span>${esc(c.name ?? "")}</span></button>`;
     const btn = content.querySelector("button");
+    // In pill mode the label is part of the tap target too.
+    content.querySelector(".label")?.addEventListener("click", () => btn.click());
     btn.addEventListener("click", () => {
       const [domain, service] = c.action.split(".");
       this._hass.callService(domain, service, c.data ?? {}, c.target);
