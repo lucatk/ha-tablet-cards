@@ -6,13 +6,15 @@ import { ensureShell, esc } from "./shared.js";
  * Rotates through headlines held in plain sensors (e.g. from the Scrape
  * integration). Each source names an entity prefix; item N reads
  * `<prefix>N` (title), `<prefix>N_text` (teaser) and `<prefix>N_bild` (image).
+ * `layout: side` (default) puts a square image left of the text; `layout: hero`
+ * shows the image full-width at the top with the text below.
  */
 export class NewsTickerCard extends HTMLElement {
   setConfig(config) {
     if (!Array.isArray(config.sources) || config.sources.length === 0) {
       throw new Error("news-ticker-card: `sources` must be a non-empty list");
     }
-    this._config = { interval_seconds: 12, count: 4, ...config };
+    this._config = { interval_seconds: 12, count: 4, layout: "side", ...config };
     this._index = 0;
   }
 
@@ -71,7 +73,7 @@ export class NewsTickerCard extends HTMLElement {
     const list = this._list ?? [];
     const item = list.length ? list[this._index % list.length] : null;
     ensureShell(this.shadowRoot, `
-        :host { display: block; }
+        :host { display: block; height: 100%; }
         ha-card { height: 100%; box-sizing: border-box; padding: 18px; color: #fff; overflow: hidden; }
         .content { height: 100%; display: flex; align-items: center; gap: 16px; }
         img { width: 34%; aspect-ratio: 1; object-fit: cover; border-radius: 12px; flex: none; }
@@ -81,12 +83,21 @@ export class NewsTickerCard extends HTMLElement {
           display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .text { font-size: 17px; line-height: 1.35; opacity: 0.7;
           display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+        ha-card.hero { padding: 0; }
+        .hero .content { flex-direction: column; align-items: stretch; gap: 0; }
+        .hero img { width: 100%; height: 48%; aspect-ratio: auto; border-radius: 0; animation: fade 600ms ease-out; }
+        .hero .body { flex: 1; min-height: 0; padding: 16px 22px 18px; display: flex; flex-direction: column; }
+        .hero .title { -webkit-line-clamp: 2; }
+        .hero .text { -webkit-line-clamp: 2; }
+        .hero .body.noimg .text { -webkit-line-clamp: 6; }
         @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-    `).innerHTML = `
+    `);
+    this.shadowRoot.querySelector("ha-card").classList.toggle("hero", this._config.layout === "hero");
+    this.shadowRoot.querySelector(".content").innerHTML = `
         ${
           item
             ? `${item.image ? `<img src="${esc(item.image)}" alt="" referrerpolicy="no-referrer">` : ""}
-               <div class="body">
+               <div class="body${item.image ? "" : " noimg"}">
                  <div class="src">${esc(item.source)}</div>
                  <div class="title">${esc(item.title)}</div>
                  ${item.text ? `<div class="text">${esc(item.text)}</div>` : ""}

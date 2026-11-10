@@ -13,8 +13,9 @@ ha-card {
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border: none;
-  border-radius: 0;
+  border-radius: 28px;
   box-shadow: none;
+  overflow: hidden;
   color: #fff;
   height: 100%;
 }
@@ -92,23 +93,23 @@ def action_cards(room):
 def top_cards():
     return [
         {"type": "custom:tablet-clock-card", "view_layout": {"grid-area": "clock"},
-         "card_mod": glass()},
+         "card_mod": glass("ha-card { padding: 26px 30px !important; }")},
         {"type": "weather-forecast", "entity": "weather.forecast_home", "name": "München",
          "forecast_type": "daily", "forecast_slots": 4, "show_current": True, "show_forecast": True,
          "view_layout": {"grid-area": "weather"},
          "card_mod": glass("""
-ha-card { padding: 8px 4px; display: flex; flex-direction: column; justify-content: center; }
+ha-card { padding: 14px 12px; display: flex; flex-direction: column; justify-content: center; }
 ha-card, .name, .attribute, .temp-attribute, .forecast .templow { color: #fff !important; }
 .forecast .templow { opacity: 0.6; }
 """)},
         {"type": "custom:news-ticker-card", "interval_seconds": 12,
          "sources": [{"name": "ZDFheute", "prefix": "sensor.news_zdf_"},
                      {"name": "SZ München", "prefix": "sensor.news_sz_"}],
-         "view_layout": {"grid-area": "news"}, "card_mod": glass()},
+         "layout": "hero", "view_layout": {"grid-area": "news"}, "card_mod": glass()},
         {"type": "custom:mvg-departures-card",
          "stops": ["de:09162:126;BUS", "de:09162:51;TRAM", "de:09162:120;UBAHN", "de:09162:70;UBAHN"],
          "limit": 3, "per_page": 2, "cycle_seconds": 10, "refresh_seconds": 60, "font_size": "19px",
-         "view_layout": {"grid-area": "mvg"}, "card_mod": glass()},
+         "view_layout": {"grid-area": "mvg"}, "card_mod": glass("ha-card { padding: 20px 24px !important; }")},
         appliance_card(),
     ]
 
@@ -160,11 +161,11 @@ def grid(rooms_rows, extra_cards):
         "layout_type": "custom:grid-layout",
         "layout": {
             "grid-template-columns": "1fr 1fr",
-            "grid-template-rows": "210px 370px auto 1fr",
+            "grid-template-rows": "212px 352px auto 1fr",
             "grid-template-areas": areas,
-            "grid-gap": "0px",
-            "height": "100vh",
-            "padding": "0",
+            "grid-gap": "14px",
+            "height": "calc(100vh - 22px)",
+            "padding": "18px 18px 0",
             "margin": "0",
         },
         "cards": top_cards() + extra_cards,
@@ -189,7 +190,8 @@ def dashboard():
     wallpaper = {"type": "custom:bing-wallpaper-card", "mkt": "de-DE", "resolution": "1080x1920",
                  "count": 8, "rotate_minutes": 10, "dim": 0.2, "view_layout": {"grid-area": "clock"}}
     rooms = {"type": "custom:tablet-rooms-card", "timeout_seconds": ROOM_TIMEOUT_S, "columns": 3,
-             "rooms": [room_config(r) for r in ROOMS], "view_layout": {"grid-area": "rooms"}}
+             "rooms": [room_config(r) for r in ROOMS], "view_layout": {"grid-area": "rooms"},
+             "card_mod": {"style": "ha-card { --tablet-rooms-padding: 4px 0 18px; }"}}
     return {
         "kiosk_mode": {"kiosk": True},
         "views": [{

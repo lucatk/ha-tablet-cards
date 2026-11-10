@@ -32,6 +32,7 @@ Rotates through headlines stored in sensors (for example from the Scrape integra
 
 ```yaml
 type: custom:news-ticker-card
+layout: hero            # hero = full-width image above the text; side = small image left
 interval_seconds: 12
 count: 4
 sources:

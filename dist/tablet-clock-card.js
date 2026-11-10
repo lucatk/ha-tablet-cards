@@ -32,6 +32,7 @@ export class TabletClockCard extends HTMLElement {
     const pad = (n) => String(n).padStart(2, "0");
     if (!this._built) {
       ensureShell(this.shadowRoot, `
+          :host { display: block; height: 100%; }
           ha-card { height: 100%; box-sizing: border-box; padding: 24px 28px; color: #fff; }
           .content { height: 100%; display: flex; flex-direction: column; justify-content: center; }
           .date { font-size: 18px; font-weight: 600; margin-bottom: 6px; }

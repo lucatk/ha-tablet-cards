@@ -19,7 +19,7 @@ import { TabletActionCard, TabletEntityCard } from "./tablet-entity-card.js";
 import { TabletRoomsCard } from "./tablet-rooms-card.js";
 import { BingWallpaperCard } from "./bing-wallpaper-card.js";
 
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 
 customElements.define("mvg-departures-card", MvgDeparturesCard);
 customElements.define("news-ticker-card", NewsTickerCard);

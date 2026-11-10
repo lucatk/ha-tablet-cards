@@ -140,7 +140,7 @@ export class MvgDeparturesCard extends HTMLElement {
         ? `<div class="dots">${Array.from({ length: this._pageCount() }, (_, i) => `<span class="${i === this._page ? "on" : ""}"></span>`).join("")}</div>`
         : "";
     ensureShell(this.shadowRoot, `
-        :host { display: block; }
+        :host { display: block; height: 100%; }
         ha-card { height: 100%; box-sizing: border-box; padding: 16px 18px; color: #fff; }
         .content {
           height: 100%; font-size: ${c.font_size}; line-height: 1;
