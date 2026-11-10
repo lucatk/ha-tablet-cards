@@ -1,17 +1,15 @@
-"""Build the two tablet dashboards and push them to Home Assistant.
+"""Build the tablet dashboard (/dashboard-tablet) and push it to Home Assistant.
 
-  dashboard-tablet         native tiles, rooms open as browser_mod popups
-  dashboard-tablet-bubble  Bubble Card buttons and pop-ups
+Rooms open in place of the room grid (custom:tablet-rooms-card), no popups.
 """
 import asyncio, json, os, sys
 import websockets
 
-WALLPAPER = "http://192.168.2.111:8098/wallpapers/mf-19.jpg"
-POPUP_TIMEOUT_MS = 120_000
+ROOM_TIMEOUT_S = 120
 
 GLASS = """
 ha-card {
-  background: rgba(16, 18, 40, 0.38);
+  background: rgba(16, 18, 40, 0.46);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border: none;
@@ -31,6 +29,7 @@ ROOMS = [
     {
         "key": "wohnzimmer", "name": "Wohnzimmer", "icon": "mdi:sofa-outline", "area": "r1",
         "entities": ["light.wohnzimmer_wohnzimmer", "media_player.wohnzimmer_beam"],
+        "names": {"light.wohnzimmer_wohnzimmer": "Licht", "media_player.wohnzimmer_beam": "Sonos Beam"},
         "scenes": [("scene.wohnzimmer_wohnzimmer_bright", "Hell", "mdi:brightness-7"),
                    ("scene.wohnzimmer_wohnzimmer_dimmed", "Gedimmt", "mdi:brightness-5"),
                    ("scene.wohnzimmer_wohnzimmer_nightlight", "Nachtlicht", "mdi:weather-night")],
@@ -38,6 +37,10 @@ ROOMS = [
     {
         "key": "esstisch", "name": "Esstisch", "icon": "mdi:table-chair", "area": "r2",
         "entities": ["light.hue_esstisch", "light.hue_esstisch_pendellampe_oben", "light.hue_esstisch_pendellampe_unten"],
+        "names": {"light.hue_esstisch": "Esstisch", "light.hue_esstisch_pendellampe_oben": "Pendel oben",
+                  "light.hue_esstisch_pendellampe_unten": "Pendel unten"},
+        "chips": {"light.hue_esstisch": "Tisch", "light.hue_esstisch_pendellampe_oben": "Oben",
+                  "light.hue_esstisch_pendellampe_unten": "Unten"},
         "scenes": [("scene.esstisch_esstisch_relax", "Relax", "mdi:sofa-single-outline"),
                    ("scene.esstisch_esstisch_concentrate", "Konzentration", "mdi:lightbulb-on-outline"),
                    ("scene.esstisch_esstisch_nightlight", "Nachtlicht", "mdi:weather-night")],
@@ -45,12 +48,16 @@ ROOMS = [
     {
         "key": "kueche", "name": "Küche", "icon": "mdi:stove", "area": "r3",
         "entities": ["light.kuche_licht", "switch.shellyplus2pm_c82e18065c2c_switch_0", "switch.spuli_power"],
-        "names": {"switch.shellyplus2pm_c82e18065c2c_switch_0": "Lüftung", "switch.spuli_power": "Spülmaschine"},
+        "names": {"light.kuche_licht": "Licht", "switch.shellyplus2pm_c82e18065c2c_switch_0": "Lüftung",
+                  "switch.spuli_power": "Spülmaschine"},
         "scenes": [],
     },
     {
         "key": "schlafzimmer", "name": "Schlafzimmer", "icon": "mdi:bed-outline", "area": "r4",
         "entities": ["light.hue_schlafzimmer", "light.hue_schlafzimmer_spots", "media_player.schlafzimmer_one"],
+        "names": {"light.hue_schlafzimmer": "Deckenlicht", "light.hue_schlafzimmer_spots": "Spots",
+                  "media_player.schlafzimmer_one": "Sonos One"},
+        "chips": {"light.hue_schlafzimmer": "Decke", "light.hue_schlafzimmer_spots": "Spots"},
         "scenes": [("scene.schlafzimmer_schlafzimmer_relax", "Relax", "mdi:sofa-single-outline"),
                    ("scene.schlafzimmer_schlafzimmer_read", "Lesen", "mdi:book-open-variant"),
                    ("scene.schlafzimmer_schlafzimmer_nightlight", "Nachtlicht", "mdi:weather-night")],
@@ -58,7 +65,7 @@ ROOMS = [
     {
         "key": "bad", "name": "Bad", "icon": "mdi:shower-head", "area": "r5",
         "entities": ["vacuum.roborock_qrevo_s", "media_player.bad_roam"],
-        "names": {"vacuum.roborock_qrevo_s": "Saugroboter"},
+        "names": {"vacuum.roborock_qrevo_s": "Saugroboter", "media_player.bad_roam": "Sonos Roam"},
         "vacuum": [("vacuum.start", "Start", "mdi:play"),
                    ("vacuum.pause", "Pause", "mdi:pause"),
                    ("vacuum.return_to_base", "Zur Station", "mdi:home-import-outline")],
@@ -69,15 +76,15 @@ COLOR_LIGHTS = {"light.hue_esstisch", "light.hue_esstisch_pendellampe_oben", "li
                 "light.hue_schlafzimmer", "light.hue_schlafzimmer_spots"}
 DIMMABLE = COLOR_LIGHTS | {"light.wohnzimmer_wohnzimmer"}
 
-def action_buttons(room):
-    """(name, icon, action-dict) for scene or vacuum buttons."""
+def action_cards(room):
+    """Scene or vacuum buttons for the room's bottom row."""
     out = []
     for ent, name, icon in room.get("scenes", []):
-        out.append((name, icon, {"action": "perform-action", "perform_action": "scene.turn_on",
-                                 "target": {"entity_id": ent}}))
+        out.append({"type": "custom:tablet-action-card", "name": name, "icon": icon,
+                    "action": "scene.turn_on", "target": {"entity_id": ent}})
     for svc, name, icon in room.get("vacuum", []):
-        out.append((name, icon, {"action": "perform-action", "perform_action": svc,
-                                 "target": {"entity_id": "vacuum.roborock_qrevo_s"}}))
+        out.append({"type": "custom:tablet-action-card", "name": name, "icon": icon,
+                    "action": svc, "target": {"entity_id": "vacuum.roborock_qrevo_s"}})
     return out
 
 # ---------------------------------------------------------------- top half
@@ -163,202 +170,41 @@ def grid(rooms_rows, extra_cards):
         "cards": top_cards() + extra_cards,
     }
 
-ROOM_TILE = """
-ha-card {
-  background: rgba(16, 18, 40, 0.30);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 28px;
-  color: #fff;
-  height: 200px !important;
-  --card-mod-icon-color: #fff;
-}
-ha-card span { font-size: 23px; color: #fff; }
-"""
-
-def room_grid_card(cards):
-    return {
-        "type": "custom:layout-card",
-        "layout_type": "custom:grid-layout",
-        "layout": {
-            "grid-template-columns": "repeat(6, 1fr)",
-            "grid-template-areas": '"r1 r1 r2 r2 r3 r3" ". r4 r4 r5 r5 ."',
-            "grid-gap": "26px",
-            "padding": "30px 24px",
-        },
-        "view_layout": {"grid-area": "rooms"},
-        "cards": cards,
-    }
-
-# ---------------------------------------------------------------- native variant
-
-POPUP_STYLE = """
-ha-dialog {
-  --ha-dialog-surface-background: rgba(22, 24, 48, 0.94);
-  --mdc-theme-surface: rgba(22, 24, 48, 0.94);
-  --dialog-backdrop-filter: blur(6px);
-  --primary-text-color: #fff;
-  --secondary-text-color: rgba(255, 255, 255, 0.65);
-  --ha-card-background: rgba(255, 255, 255, 0.07);
-  --card-background-color: rgba(255, 255, 255, 0.07);
-  --ha-card-border-color: rgba(255, 255, 255, 0.08);
-  --divider-color: rgba(255, 255, 255, 0.1);
-  --state-icon-color: #fff;
-  --paper-item-icon-color: #fff;
-  color: #fff;
-}
-"""
-
-def native_room_content(room):
-    cards = []
+def room_config(room):
     names = room.get("names", {})
-    for ent in room["entities"]:
-        tile = {"type": "tile", "entity": ent, "vertical": False, "features_position": "bottom"}
-        if ent in names:
-            tile["name"] = names[ent]
-        domain = ent.split(".")[0]
-        if domain in ("light", "switch"):
-            tile["tap_action"] = {"action": "toggle"}
-            tile["icon_tap_action"] = {"action": "more-info"}
-            feats = []
-            if ent in DIMMABLE:
-                feats.append({"type": "light-brightness"})
-            if ent in COLOR_LIGHTS:
-                feats.append({"type": "light-color-temp"})
-            if feats:
-                tile["features"] = feats
-        else:
-            tile["tap_action"] = {"action": "none"}
-            tile["icon_tap_action"] = {"action": "none"}
-        cards.append(tile)
-    buttons = action_buttons(room)
-    if buttons:
-        cards.append({
-            "type": "grid", "columns": len(buttons), "square": False,
-            "cards": [{"type": "button", "name": n, "icon": i, "icon_height": "40px",
-                       "show_state": False, "tap_action": a} for n, i, a in buttons],
-        })
-    return {"type": "vertical-stack", "cards": cards}
-
-def native_room_button(room):
-    return {
-        "type": "button", "name": room["name"], "icon": room["icon"], "icon_height": "72px",
-        "show_state": False,
-        "tap_action": {
-            "action": "fire-dom-event",
-            "browser_mod": {
-                "service": "browser_mod.popup",
-                "data": {
-                    "title": room["name"],
-                    "content": native_room_content(room),
-                    "right_button": "Zurück",
-                    "dismissable": True,
-                    "timeout": POPUP_TIMEOUT_MS,
-                    "initial_style": "wide",
-                    "popup_styles": [{"style": "all", "styles": POPUP_STYLE}],
-                },
-            },
-        },
-        "view_layout": {"grid-area": room["area"]},
-        "card_mod": {"style": ROOM_TILE},
+    cfg = {
+        "name": room["name"], "icon": room["icon"],
+        "main": [{"type": "custom:tablet-entity-card", "entity": e, **({"name": names[e]} if e in names else {})}
+                 for e in room["entities"]],
     }
+    colour = [e for e in room["entities"] if e in COLOR_LIGHTS]
+    if colour:
+        cfg["side"] = [{"type": "custom:light-color-card", "entities": colour, "names": room.get("chips", {})}]
+    actions = action_cards(room)
+    if actions:
+        cfg["actions"] = actions
+    return cfg
 
-def native_dashboard():
-    root = grid('"rooms rooms"', [room_grid_card([native_room_button(r) for r in ROOMS])])
+def dashboard():
+    wallpaper = {"type": "custom:bing-wallpaper-card", "mkt": "de-DE", "resolution": "1080x1920",
+                 "count": 8, "rotate_minutes": 10, "dim": 0.2, "view_layout": {"grid-area": "clock"}}
+    rooms = {"type": "custom:tablet-rooms-card", "timeout_seconds": ROOM_TIMEOUT_S, "columns": 3,
+             "rooms": [room_config(r) for r in ROOMS], "view_layout": {"grid-area": "rooms"}}
     return {
         "kiosk_mode": {"kiosk": True},
         "views": [{
             "title": "Tablet", "path": "tablet", "type": "panel",
-            "background": f"center / cover no-repeat url('{WALLPAPER}') fixed",
-            "cards": [root],
-        }],
-    }
-
-# ---------------------------------------------------------------- bubble variant
-
-def bubble_room_content(room):
-    names = room.get("names", {})
-    cards = []
-    for ent in room["entities"]:
-        domain = ent.split(".")[0]
-        c = {"type": "custom:bubble-card", "entity": ent}
-        if ent in names:
-            c["name"] = names[ent]
-        if domain == "media_player":
-            c.update({"card_type": "media-player", "hide": {"power_button": True},
-                      "tap_action": {"action": "none"}, "button_action": {"tap_action": {"action": "none"}}})
-        elif domain == "vacuum":
-            c.update({"card_type": "button", "button_type": "state",
-                      "tap_action": {"action": "none"}, "button_action": {"tap_action": {"action": "none"}}})
-        elif ent in DIMMABLE:
-            c.update({"card_type": "button", "button_type": "slider",
-                      "tap_action": {"action": "toggle"}})
-            if ent in COLOR_LIGHTS:
-                c["sub_button"] = [{"name": "Farbe", "icon": "mdi:palette",
-                                    "tap_action": {"action": "more-info"}}]
-        else:
-            c.update({"card_type": "button", "button_type": "switch"})
-        cards.append(c)
-    buttons = action_buttons(room)
-    if buttons:
-        cards.append({
-            "type": "grid", "columns": len(buttons), "square": False,
-            "cards": [{"type": "custom:bubble-card", "card_type": "button", "button_type": "name",
-                       "name": n, "icon": i, "button_action": {"tap_action": a}, "tap_action": a}
-                      for n, i, a in buttons],
-        })
-    back = {"action": "navigate", "navigation_path": "#"}
-    cards.append({"type": "custom:bubble-card", "card_type": "button", "button_type": "name",
-                  "name": "Zurück", "icon": "mdi:arrow-left",
-                  "button_action": {"tap_action": back}, "tap_action": back})
-    return {
-        "type": "custom:bubble-card", "card_type": "pop-up", "hash": f"#{room['key']}",
-        "name": room["name"], "icon": room["icon"], "auto_close": str(POPUP_TIMEOUT_MS),
-        "close_by_clicking_outside": True, "bg_color": "#161830", "bg_opacity": "88", "bg_blur": "14",
-        "cards": cards, "view_layout": {"grid-area": "pops"},
-    }
-
-BUBBLE_ROOM = """
-.bubble-button-card-container { background: rgba(16, 18, 40, 0.38) !important;
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
-.bubble-name { font-size: 22px !important; color: #fff !important; }
-.bubble-icon-container { background: rgba(255, 255, 255, 0.14) !important; }
-.bubble-icon { --mdc-icon-size: 30px !important; color: #fff !important; opacity: 1 !important; }
-"""
-
-def bubble_room_button(room):
-    nav = {"action": "navigate", "navigation_path": f"#{room['key']}"}
-    return {
-        "type": "custom:bubble-card", "card_type": "button", "button_type": "name",
-        "name": room["name"], "icon": room["icon"], "card_layout": "large", "rows": 2,
-        "tap_action": nav, "button_action": {"tap_action": nav},
-        "styles": BUBBLE_ROOM,
-        "view_layout": {"grid-area": room["area"]},
-    }
-
-def bubble_dashboard():
-    rooms = room_grid_card([bubble_room_button(r) for r in ROOMS])
-    rooms["layout"]["grid-template-areas"] = '"r1 r1 r1 r2 r2 r2" "r3 r3 r3 r4 r4 r4" "r5 r5 r5 . . ."'
-    rooms["layout"]["grid-gap"] = "18px"
-    rooms["layout"]["padding"] = "24px 24px"
-    root = grid('"rooms rooms" "pops pops"', [rooms] + [bubble_room_content(r) for r in ROOMS])
-    root["layout"]["grid-template-rows"] = "210px 370px auto 1fr 0px"
-    return {
-        "kiosk_mode": {"kiosk": True},
-        "views": [{
-            "title": "Tablet", "path": "tablet", "type": "panel",
-            "background": f"center / cover no-repeat url('{WALLPAPER}') fixed",
-            "cards": [root],
+            "background": "transparent",
+            "cards": [grid('"rooms rooms"', [wallpaper, rooms])],
         }],
     }
 
 # ---------------------------------------------------------------- push
 
 DASHBOARDS = {
-    "dashboard-tablet": ("Tablet", "mdi:tablet", native_dashboard),
-    "dashboard-tablet-bubble": ("Tablet (Bubble)", "mdi:tablet-dashboard", bubble_dashboard),
+    "dashboard-tablet": ("Tablet", "mdi:tablet", dashboard),
 }
+REMOVED = ["dashboard-tablet-bubble"]
 
 async def main(preview_appliances=False):
     async with websockets.connect("ws://192.168.2.111/api/websocket", max_size=2**25) as w:
@@ -375,7 +221,12 @@ async def main(preview_appliances=False):
                 r = json.loads(await w.recv())
                 if r.get("id") == n:
                     return r
-        existing = {d["url_path"] for d in (await call({"type": "lovelace/dashboards/list"}))["result"]}
+        listed = (await call({"type": "lovelace/dashboards/list"}))["result"]
+        existing = {d["url_path"] for d in listed}
+        for d in listed:
+            if d["url_path"] in REMOVED:
+                r = await call({"type": "lovelace/dashboards/delete", "dashboard_id": d["id"]})
+                print("delete", d["url_path"], r.get("success"), r.get("error"))
         for path, (title, icon, build) in DASHBOARDS.items():
             if path not in existing:
                 r = await call({"type": "lovelace/dashboards/create", "url_path": path, "title": title,

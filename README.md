@@ -50,9 +50,51 @@ type: custom:tablet-clock-card
 locale: de-DE
 ```
 
+## `custom:tablet-rooms-card`
+
+Room grid (big tiles, icon above name) that swaps in place for the room's controls — no popups. Per browser; returns to the grid after `timeout_seconds` without a touch.
+
+```yaml
+type: custom:tablet-rooms-card
+timeout_seconds: 120
+columns: 3
+rooms:
+  - name: Esstisch
+    icon: mdi:table-chair
+    main:            # left column (full width without `side`)
+      - type: custom:tablet-entity-card
+        entity: light.hue_esstisch
+    side:            # optional right column
+      - type: custom:light-color-card
+        entities: [light.hue_esstisch]
+    actions:         # optional bottom row
+      - type: custom:tablet-action-card
+        name: Relax
+        icon: mdi:sofa-single-outline
+        action: scene.turn_on
+        target: { entity_id: scene.esstisch_esstisch_relax }
+```
+
+- `custom:tablet-entity-card` — large pill row. Dimmable lights: tap toggles, drag sideways sets brightness. Lights/switches: tap toggles. Other entities: state only.
+- `custom:tablet-action-card` — large button calling `action` (`domain.service`) with optional `data` / `target`.
+- `custom:light-color-card` — colour wheel and colour-temperature slider for one or more lights (`names` maps entity → chip label).
+
+## `custom:bing-wallpaper-card`
+
+Full-screen Bing image of the day as background (via [bing-wallpaper](https://github.com/TimothyYe/bing-wallpaper)); takes no space.
+
+```yaml
+type: custom:bing-wallpaper-card
+mkt: de-DE
+resolution: 1080x1920
+count: 8              # rotate through the last N days
+rotate_minutes: 10    # 0 = today's image only
+dim: 0.2
+```
+
 ## Dashboards
 
-`dashboards/build.py` generates the two tablet dashboards (`/dashboard-tablet` with browser_mod popups, `/dashboard-tablet-bubble` with Bubble Card pop-ups) and saves them through the Home Assistant websocket API. Requires `websockets` and an admin token in `HA_TOKEN`.
+`dashboards/build.py` generates the tablet dashboard (`/dashboard-tablet`) and saves them through the Home Assistant websocket API. Requires `websockets` and an admin token in `HA_TOKEN`.
 
 ```sh
 HA_TOKEN=… python dashboards/build.py

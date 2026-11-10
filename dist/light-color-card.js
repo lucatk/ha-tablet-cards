@@ -1,0 +1,199 @@
+// custom:light-color-card — colour wheel and colour-temperature slider for
+// one or more lights, shown in place (no more-info dialog).
+
+import { ensureShell, esc } from "./shared.js";
+
+const WHEEL_PX = 480; // canvas resolution; displayed size comes from CSS
+
+function drawWheel(canvas) {
+  const ctx = canvas.getContext("2d");
+  const r = WHEEL_PX / 2;
+  const img = ctx.createImageData(WHEEL_PX, WHEEL_PX);
+  for (let y = 0; y < WHEEL_PX; y++) {
+    for (let x = 0; x < WHEEL_PX; x++) {
+      const dx = x - r;
+      const dy = y - r;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d > r) continue;
+      const [cr, cg, cb] = hsToRgb((Math.atan2(dy, dx) * 180) / Math.PI + 360, d / r);
+      const i = (y * WHEEL_PX + x) * 4;
+      img.data.set([cr, cg, cb, d > r - 1.5 ? 255 * (r - d) / 1.5 : 255], i);
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+export function hsToRgb(h, s) {
+  h = ((h % 360) + 360) % 360;
+  const f = (n) => {
+    const k = (n + h / 60) % 6;
+    return 255 * (1 - s * Math.max(0, Math.min(k, 4 - k, 1)));
+  };
+  return [Math.round(f(5)), Math.round(f(3)), Math.round(f(1))];
+}
+
+const supportsColor = (st) =>
+  (st?.attributes?.supported_color_modes ?? []).some((m) => ["hs", "xy", "rgb", "rgbw", "rgbww"].includes(m));
+const supportsTemp = (st) => (st?.attributes?.supported_color_modes ?? []).includes("color_temp");
+
+export class LightColorCard extends HTMLElement {
+  setConfig(config) {
+    const entities = config.entities ?? (config.entity ? [config.entity] : []);
+    if (!entities.length) throw new Error("light-color-card: `entities` required");
+    this._config = { names: {}, ...config, entities };
+    this._selected = "all";
+    if (this.shadowRoot) this.shadowRoot.innerHTML = "";
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  getCardSize() {
+    return 6;
+  }
+
+  connectedCallback() {
+    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    this._render();
+  }
+
+  _targets() {
+    return this._selected === "all" ? this._config.entities : [this._selected];
+  }
+
+  _call(data) {
+    this._hass.callService("light", "turn_on", { entity_id: this._targets(), ...data });
+  }
+
+  _build(content) {
+    const many = this._config.entities.length > 1;
+    content.innerHTML = `
+      ${many ? `<div class="chips">${["all", ...this._config.entities]
+        .map((e) => `<button class="chip" data-e="${esc(e)}"></button>`).join("")}</div>` : ""}
+      <div class="wheel"><canvas width="${WHEEL_PX}" height="${WHEEL_PX}"></canvas><div class="dot"></div></div>
+      <div class="temp"><div class="knob"></div></div>`;
+    drawWheel(content.querySelector("canvas"));
+    content.querySelectorAll(".chip").forEach((b) =>
+      b.addEventListener("click", () => {
+        this._selected = b.dataset.e;
+        this._render();
+      }),
+    );
+    const wheel = content.querySelector(".wheel");
+    const pick = (ev, commit) => {
+      const rect = wheel.getBoundingClientRect();
+      const dx = ev.clientX - rect.left - rect.width / 2;
+      const dy = ev.clientY - rect.top - rect.height / 2;
+      const h = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
+      const s = Math.min(1, Math.sqrt(dx * dx + dy * dy) / (rect.width / 2));
+      this._dragging = !commit;
+      this._preview = { h, s };
+      this._placeDot();
+      if (commit) this._call({ hs_color: [Math.round(h), Math.round(s * 100)] });
+    };
+    dragHandler(wheel, (ev) => pick(ev, false), (ev) => pick(ev, true));
+    const temp = content.querySelector(".temp");
+    const pickTemp = (ev, commit) => {
+      const rect = temp.getBoundingClientRect();
+      const t = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+      this._dragging = !commit;
+      this._tempPreview = t;
+      this._placeKnob();
+      if (commit) {
+        const [min, max] = this._kelvinRange();
+        this._call({ color_temp_kelvin: Math.round(min + t * (max - min)) });
+      }
+    };
+    dragHandler(temp, (ev) => pickTemp(ev, false), (ev) => pickTemp(ev, true));
+  }
+
+  _kelvinRange() {
+    const st = this._targets().map((e) => this._hass.states[e]).find(supportsTemp);
+    return [st?.attributes?.min_color_temp_kelvin ?? 2200, st?.attributes?.max_color_temp_kelvin ?? 6500];
+  }
+
+  _primary() {
+    return this._hass?.states[this._targets()[0]];
+  }
+
+  _placeDot() {
+    const dot = this.shadowRoot.querySelector(".dot");
+    const st = this._primary();
+    const hs = this._preview ?? (st?.attributes?.hs_color ? { h: st.attributes.hs_color[0], s: st.attributes.hs_color[1] / 100 } : null);
+    if (!hs || (!this._preview && st?.state !== "on")) return void (dot.style.display = "none");
+    const a = (hs.h * Math.PI) / 180;
+    dot.style.display = "block";
+    dot.style.left = `${50 + Math.cos(a) * hs.s * 50}%`;
+    dot.style.top = `${50 + Math.sin(a) * hs.s * 50}%`;
+    dot.style.background = `rgb(${hsToRgb(hs.h, hs.s).join(",")})`;
+  }
+
+  _placeKnob() {
+    const knob = this.shadowRoot.querySelector(".knob");
+    const st = this._primary();
+    let t = this._tempPreview;
+    if (t === undefined && st?.state === "on" && st.attributes.color_mode === "color_temp") {
+      const [min, max] = this._kelvinRange();
+      t = (st.attributes.color_temp_kelvin - min) / (max - min);
+    }
+    knob.style.display = t === undefined ? "none" : "block";
+    if (t !== undefined) knob.style.left = `${t * 100}%`;
+  }
+
+  _render() {
+    if (!this.shadowRoot || !this._config || !this._hass) return;
+    const content = ensureShell(this.shadowRoot, `
+      :host { display: block; height: 100%; }
+      ha-card { height: 100%; box-sizing: border-box; padding: 18px; background: none; border: none; box-shadow: none; }
+      .content { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+      .chips { flex: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+      .chip { font: inherit; font-size: 17px; color: #fff; border: none; border-radius: 999px; padding: 8px 16px;
+        background: rgba(255,255,255,0.10); cursor: pointer; }
+      .chip.on { background: #fff; color: #161830; font-weight: 600; }
+      .wheel { position: relative; flex: 1 1 0; min-height: 0; max-height: 320px; aspect-ratio: 1; max-width: 100%; touch-action: none; }
+      canvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
+      .dot { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%;
+        border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.5); pointer-events: none; }
+      .temp { position: relative; flex: none; width: min(100%, 320px); height: 44px; border-radius: 22px; touch-action: none;
+        background: linear-gradient(90deg, #ffa448, #fff1dc 55%, #cfe2ff); }
+      .knob { position: absolute; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%;
+        border: 3px solid #fff; background: transparent; box-shadow: 0 2px 8px rgba(0,0,0,.5); pointer-events: none; }
+      .temp.off { display: none; }
+    `);
+    if (!content.firstChild) this._build(content);
+    const names = this._config.names;
+    content.querySelectorAll(".chip").forEach((b) => {
+      const e = b.dataset.e;
+      b.textContent = e === "all" ? "Alle" : names[e] ?? this._hass.states[e]?.attributes.friendly_name ?? e;
+      b.classList.toggle("on", e === this._selected);
+    });
+    if (this._dragging) return;
+    const st = this._primary();
+    content.querySelector(".wheel").style.display = supportsColor(st) ? "" : "none";
+    content.querySelector(".temp").classList.toggle("off", !supportsTemp(st));
+    this._preview = undefined;
+    this._tempPreview = undefined;
+    this._placeDot();
+    this._placeKnob();
+  }
+}
+
+/** Pointer drag: `move` while dragging, `end` once on release. */
+export function dragHandler(el, move, end) {
+  el.addEventListener("pointerdown", (ev) => {
+    el.setPointerCapture(ev.pointerId);
+    move(ev);
+    const onMove = (e) => move(e);
+    const onUp = (e) => {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onUp);
+      end(e);
+    };
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointercancel", onUp);
+  });
+}
