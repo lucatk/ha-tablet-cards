@@ -5,7 +5,9 @@
 //   anything else:  state only
 // `detail: color | members` adds an arrow on the right. Tapping it fires a
 // `tablet-detail` event that tablet-rooms-card turns into a side panel
-// (colour picker, or the member lights of a group).
+// (colour picker, or the member lights of a group). For a group light,
+// `color_entities` / `color_names` give the picker one chip per member
+// plus "Alle".
 // custom:tablet-action-card — large button that calls a service.
 
 import { ensureShell, esc } from "./shared.js";
@@ -14,10 +16,10 @@ import { dragHandler } from "./light-color-card.js";
 const TILE_CSS = `
   :host { display: block; }
   ha-card { background: none; border: none; box-shadow: none; }
-  .tile { position: relative; overflow: hidden; height: var(--tablet-tile-height, 128px); border-radius: 28px;
+  .tile { position: relative; overflow: hidden; isolation: isolate; height: var(--tablet-tile-height, 128px); border-radius: 28px;
     background: rgba(255,255,255,0.09); color: #fff; display: flex; align-items: center;
-    padding: 0 12px 0 22px; box-sizing: border-box; user-select: none; touch-action: pan-y; cursor: pointer; }
-  .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--fill, #f5b041); opacity: .85;
+    padding: 0 18px 0 26px; box-sizing: border-box; user-select: none; touch-action: pan-y; cursor: pointer; }
+  .fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: inherit; background: var(--fill, #f5b041); opacity: .85;
     transition: width .25s ease; }
   .tile.dragging .fill { transition: none; }
   .info { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
@@ -33,6 +35,10 @@ const TILE_CSS = `
     cursor: pointer; margin-left: 8px; }
   .arrow.open { background: #fff; color: #161830; }
 `;
+
+// The tablet's HA user is set to German, but other viewers may not be.
+export const GERMAN = { on: "An", off: "Aus", unavailable: "Nicht verfügbar", unknown: "Unbekannt",
+  idle: "Leerlauf", playing: "Spielt", paused: "Pausiert", standby: "Standby" };
 
 export class TabletEntityCard extends HTMLElement {
   setConfig(config) {
@@ -89,7 +95,10 @@ export class TabletEntityCard extends HTMLElement {
         e.stopPropagation();
         this.dispatchEvent(new CustomEvent("tablet-detail", {
           bubbles: true, composed: true,
-          detail: { entity: this._config.entity, name: this._name(), kind: detail, card: this },
+          detail: {
+            entity: this._config.entity, name: this._name(), kind: detail, card: this,
+            entities: this._config.color_entities, names: this._config.color_names,
+          },
         }));
       });
     }
@@ -141,7 +150,7 @@ export class TabletEntityCard extends HTMLElement {
     if (kind === "dimmer" && st.state === "on") {
       return `${Math.round(((st.attributes.brightness ?? 255) / 255) * 100)} %`;
     }
-    return this._hass.formatEntityState ? this._hass.formatEntityState(st) : st.state;
+    return GERMAN[st.state] ?? (this._hass.formatEntityState ? this._hass.formatEntityState(st) : st.state);
   }
 
   _paint() {

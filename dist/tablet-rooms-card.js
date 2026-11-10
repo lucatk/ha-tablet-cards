@@ -7,7 +7,7 @@
 //   rooms:
 //     - name: Esstisch
 //       icon: mdi:table-chair
-//       main: [<card>, …]      device tiles, two columns
+//       main: [<card>, …]      device tiles, two columns (`columns: 1` for one)
 //       actions: [<card>, …]   optional bottom row, equal-width columns
 //
 // A tile's arrow (tablet-detail event) opens a side panel next to the tiles,
@@ -115,7 +115,7 @@ export class TabletRoomsCard extends HTMLElement {
       });
     } else {
       const picker = document.createElement("light-color-card");
-      picker.setConfig({ entities: [d.entity] });
+      picker.setConfig({ entities: d.entities ?? [d.entity], names: d.names ?? {} });
       host.append(this._track(picker));
     }
     side.querySelector(".side-close").addEventListener("click", () => this._closeDetail());
@@ -170,19 +170,19 @@ export class TabletRoomsCard extends HTMLElement {
       .body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); gap: 12px; }
       .body.split { grid-template-columns: 1fr 1fr; }
       .main { min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-content: start; overflow: auto;
-        --tablet-tile-height: 108px; --tablet-media-art: 116px; }
-      .split .main { grid-template-columns: 1fr; }
+        --tablet-tile-height: 120px; --tablet-media-art: 112px; }
+      .split .main, .one .main { grid-template-columns: 1fr; }
       .side { min-height: 0; border-radius: 28px; background: rgba(255,255,255,0.07); display: flex;
         flex-direction: column; padding: 14px; box-sizing: border-box; animation: slide .25s ease-out; }
       .side-head { flex: none; display: flex; align-items: center; gap: 10px; font-size: 21px; font-weight: 600; }
       .side-head span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 6px; }
-      .side-head button { width: 48px; height: 48px; border-radius: 50%; border: none; cursor: pointer;
+      .side-head button { width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer;
         background: rgba(255,255,255,0.14); color: #fff; display: grid; place-items: center; --mdc-icon-size: 28px; }
       .side .card { flex: 1; min-height: 0; }
       .side .card.members { display: flex; flex-direction: column; gap: 10px; overflow: auto; padding-top: 12px; }
       @keyframes slide { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
       .actions { flex: none; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 12px;
-        --tablet-action-height: 84px; }
+        --tablet-action-height: 74px; }
     `);
     if (content.firstChild) return this._show();
     this._cards = [];
@@ -201,7 +201,7 @@ export class TabletRoomsCard extends HTMLElement {
     const panels = rooms
       .map(
         (room) => `
-      <div class="room" hidden>
+      <div class="room${room.columns === 1 ? " one" : ""}" hidden>
         <div class="head">
           <button class="back"><ha-icon icon="mdi:chevron-left"></ha-icon>Zurück</button>
           <div class="title"><ha-icon icon="${esc(room.icon)}"></ha-icon>${esc(room.name)}</div>

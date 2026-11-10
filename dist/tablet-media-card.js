@@ -1,9 +1,10 @@
 // custom:tablet-media-card — media player tile. Idle/off: a normal tile with
 // the state. Playing or paused: spans the full row and shows artwork, title,
-// artist, previous / play-pause / next and a volume bar (drag to set).
+// artist, previous / play-pause / next and a vertical volume bar (drag to set).
 
 import { ensureShell, esc } from "./shared.js";
 import { dragHandler } from "./light-color-card.js";
+import { GERMAN } from "./tablet-entity-card.js";
 
 const ACTIVE = ["playing", "paused", "buffering"];
 
@@ -53,15 +54,15 @@ export class TabletMediaCard extends HTMLElement {
             <button data-s="media_previous_track"><ha-icon icon="mdi:skip-previous"></ha-icon></button>
             <button class="main" data-s="media_play_pause"><ha-icon></ha-icon></button>
             <button data-s="media_next_track"><ha-icon icon="mdi:skip-next"></ha-icon></button>
-            <div class="volume"><ha-icon icon="mdi:volume-high"></ha-icon><div class="bar"><div class="level"></div></div></div>
           </div>
         </div>
+        <div class="volume"><div class="bar"><div class="level"></div></div><ha-icon icon="mdi:volume-high"></ha-icon></div>
       </div>`;
     content.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => this._call(b.dataset.s)));
     const bar = content.querySelector(".bar");
     const level = (e) => {
       const r = bar.getBoundingClientRect();
-      return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+      return Math.max(0, Math.min(1, (r.bottom - e.clientY) / r.height));
     };
     dragHandler(
       bar,
@@ -85,7 +86,7 @@ export class TabletMediaCard extends HTMLElement {
       const icon = root.querySelector("ha-state-icon");
       icon.hass = this._hass;
       icon.stateObj = st;
-      root.querySelector(".state").textContent = st ? this._hass.formatEntityState?.(st) ?? st.state : "Nicht gefunden";
+      root.querySelector(".state").textContent = st ? GERMAN[st.state] ?? this._hass.formatEntityState?.(st) ?? st.state : "Nicht gefunden";
       return;
     }
     const a = st.attributes;
@@ -99,7 +100,7 @@ export class TabletMediaCard extends HTMLElement {
     }
     root.querySelector(".main ha-icon").icon = st.state === "playing" ? "mdi:pause" : "mdi:play";
     const vol = this._dragVolume ?? a.volume_level ?? 0;
-    root.querySelector(".level").style.width = `${vol * 100}%`;
+    root.querySelector(".level").style.height = `${vol * 100}%`;
   }
 
   _render() {
@@ -117,21 +118,22 @@ export class TabletMediaCard extends HTMLElement {
         display: grid; place-items: center; --mdc-icon-size: 30px; margin-bottom: 4px; }
       .name { font-size: 23px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .state, .artist { font-size: 18px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .player { border-radius: 28px; background: rgba(255,255,255,0.09); padding: 16px; box-sizing: border-box;
+      .player { border-radius: 28px; background: rgba(255,255,255,0.09); padding: 14px; box-sizing: border-box;
         display: flex; gap: 22px; align-items: center; }
       .art { flex: none; width: var(--tablet-media-art, 176px); height: var(--tablet-media-art, 176px); border-radius: 20px; overflow: hidden;
         background: rgba(255,255,255,0.1); display: grid; place-items: center; --mdc-icon-size: 64px; }
       .art img { width: 100%; height: 100%; object-fit: cover; }
-      .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-      .player .name { font-size: 16px; font-weight: 500; opacity: .7; text-transform: uppercase; letter-spacing: .06em; }
+      .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 1.2; }
+      .player .name { font-size: 14px; font-weight: 500; opacity: .7; text-transform: uppercase; letter-spacing: .06em; }
       .title { font-size: 24px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .controls { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
-      .controls button { width: 52px; height: 52px; border-radius: 50%; border: none; cursor: pointer;
+      .controls { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+      .controls button { width: 48px; height: 48px; border-radius: 50%; border: none; cursor: pointer;
         background: rgba(255,255,255,0.14); color: #fff; display: grid; place-items: center; --mdc-icon-size: 32px; }
       .controls button.main { background: #fff; color: #161830; }
-      .volume { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; margin-left: 8px; --mdc-icon-size: 24px; }
-      .bar { flex: 1; height: 28px; border-radius: 14px; background: rgba(255,255,255,0.14); overflow: hidden; touch-action: none; }
-      .level { height: 100%; background: rgba(255,255,255,0.85); }
+      .volume { flex: none; align-self: stretch; display: flex; flex-direction: column; align-items: center; gap: 8px; --mdc-icon-size: 24px; }
+      .bar { flex: 1; width: 44px; border-radius: 22px; background: rgba(255,255,255,0.14); overflow: hidden;
+        touch-action: none; display: flex; flex-direction: column; justify-content: flex-end; cursor: pointer; }
+      .level { width: 100%; background: rgba(255,255,255,0.85); border-radius: inherit; }
     `);
     if (this._mode !== mode) {
       this._mode = mode;

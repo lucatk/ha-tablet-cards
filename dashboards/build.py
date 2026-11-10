@@ -29,35 +29,27 @@ def glass(extra=""):
 ROOMS = [
     {
         "key": "wohnzimmer", "name": "Wohnzimmer", "icon": "mdi:sofa-outline", "area": "r1",
-        "entities": ["light.wohnzimmer_wohnzimmer", "media_player.wohnzimmer_beam"],
-        "names": {"light.wohnzimmer_wohnzimmer": "Licht", "media_player.wohnzimmer_beam": "Sonos Beam"},
+        "entities": ["light.hue_filament_bulb_1", "media_player.wohnzimmer_beam"],
+        "names": {"light.hue_filament_bulb_1": "TV Filament", "media_player.wohnzimmer_beam": "Sonos Beam"},
+        "columns": 1,
         "scenes": [("scene.wohnzimmer_wohnzimmer_bright", "Hell", "mdi:brightness-7"),
                    ("scene.wohnzimmer_wohnzimmer_dimmed", "Gedimmt", "mdi:brightness-5"),
                    ("scene.wohnzimmer_wohnzimmer_nightlight", "Nachtlicht", "mdi:weather-night")],
     },
     {
-        "key": "esstisch", "name": "Esstisch", "icon": "mdi:table-chair", "area": "r2",
-        "entities": ["light.hue_esstisch", "light.hue_esstisch_pendellampe_oben", "light.hue_esstisch_pendellampe_unten"],
-        "names": {"light.hue_esstisch": "Esstisch", "light.hue_esstisch_pendellampe_oben": "Pendel oben",
-                  "light.hue_esstisch_pendellampe_unten": "Pendel unten"},
-        "chips": {"light.hue_esstisch": "Tisch", "light.hue_esstisch_pendellampe_oben": "Oben",
-                  "light.hue_esstisch_pendellampe_unten": "Unten"},
+        "key": "kueche", "name": "Küche / Essen", "icon": "mdi:silverware-fork-knife", "area": "r2",
+        "entities": ["light.kuche_licht", "switch.shellyplus2pm_c82e18065c2c_switch_0", "light.hue_esstisch"],
+        "names": {"light.kuche_licht": "Küche", "switch.shellyplus2pm_c82e18065c2c_switch_0": "Lüftung",
+                  "light.hue_esstisch": "Esstisch"},
         "scenes": [("scene.esstisch_esstisch_relax", "Relax", "mdi:sofa-single-outline"),
                    ("scene.esstisch_esstisch_concentrate", "Konzentration", "mdi:lightbulb-on-outline"),
                    ("scene.esstisch_esstisch_nightlight", "Nachtlicht", "mdi:weather-night")],
     },
     {
-        "key": "kueche", "name": "Küche", "icon": "mdi:stove", "area": "r3",
-        "entities": ["light.kuche_licht", "switch.shellyplus2pm_c82e18065c2c_switch_0"],
-        "names": {"light.kuche_licht": "Licht", "switch.shellyplus2pm_c82e18065c2c_switch_0": "Lüftung"},
-        "scenes": [],
-    },
-    {
         "key": "schlafzimmer", "name": "Schlafzimmer", "icon": "mdi:bed-outline", "area": "r4",
-        "entities": ["light.hue_schlafzimmer", "light.hue_schlafzimmer_spots", "media_player.schlafzimmer_one"],
-        "names": {"light.hue_schlafzimmer": "Alle Lichter", "light.hue_schlafzimmer_spots": "Spots",
+        "entities": ["light.hue_tv_filament", "light.hue_schlafzimmer_spots", "media_player.schlafzimmer_one"],
+        "names": {"light.hue_tv_filament": "Stehlampe", "light.hue_schlafzimmer_spots": "Spots",
                   "media_player.schlafzimmer_one": "Sonos One"},
-        "chips": {"light.hue_schlafzimmer": "Decke", "light.hue_schlafzimmer_spots": "Spots"},
         "scenes": [("scene.schlafzimmer_schlafzimmer_relax", "Relax", "mdi:sofa-single-outline"),
                    ("scene.schlafzimmer_schlafzimmer_read", "Lesen", "mdi:book-open-variant"),
                    ("scene.schlafzimmer_schlafzimmer_nightlight", "Nachtlicht", "mdi:weather-night")],
@@ -119,7 +111,7 @@ def grid(rooms_rows, extra_cards):
         "layout_type": "custom:grid-layout",
         "layout": {
             "grid-template-columns": "1fr 1fr",
-            "grid-template-rows": "212px 352px 136px minmax(0, 1fr)",
+            "grid-template-rows": "196px 332px 172px minmax(0, 1fr)",
             "grid-template-areas": areas,
             "grid-gap": "14px",
             # HA pads the view by the status-bar inset on the tablet (28 px); subtract it.
@@ -131,11 +123,11 @@ def grid(rooms_rows, extra_cards):
         "cards": top_cards() + extra_cards,
     }
 
-# Hue group lights whose members aren't already tiles in the room get an
-# arrow to the individual lights; other colour lights get a colour arrow.
-GROUP_MEMBERS = {
-    "light.hue_schlafzimmer_spots": True,
-    "light.hue_schlafzimmer": True,
+# Group lights: the colour arrow gets one chip per member plus "Alle".
+GROUP_COLOUR = {
+    "light.hue_esstisch": {"light.hue_esstisch_pendellampe_oben": "Oben",
+                           "light.hue_esstisch_pendellampe_unten": "Unten"},
+    "light.hue_schlafzimmer_spots": {f"light.hue_schlafzimmer_spot_{i}": f"Spot {i}" for i in range(1, 5)},
 }
 
 def tile(entity, names, room_entities):
@@ -143,8 +135,9 @@ def tile(entity, names, room_entities):
         cfg = {"type": "custom:tablet-media-card", "entity": entity}
     else:
         cfg = {"type": "custom:tablet-entity-card", "entity": entity}
-        if GROUP_MEMBERS.get(entity):
-            cfg["detail"] = "members"
+        if entity in GROUP_COLOUR:
+            members = GROUP_COLOUR[entity]
+            cfg.update({"detail": "color", "color_entities": list(members), "color_names": members})
         elif entity in COLOR_LIGHTS:
             cfg["detail"] = "color"
     if entity in names:
@@ -155,6 +148,8 @@ def room_config(room):
     names = room.get("names", {})
     cfg = {"name": room["name"], "icon": room["icon"],
            "main": [tile(e, names, room["entities"]) for e in room["entities"]]}
+    if room.get("columns"):
+        cfg["columns"] = room["columns"]
     actions = action_cards(room)
     if actions:
         cfg["actions"] = actions
@@ -176,7 +171,8 @@ APPLIANCES = {
          "finish": "sensor.spuli_program_finish_time", "progress": "sensor.spuli_program_progress",
          "door": "sensor.spuli_door"},
         {"kind": "vacuum", "name": "Saugroboter", "icon": "mdi:robot-vacuum",
-         "entity": "vacuum.roborock_qrevo_s", "status": "sensor.roborock_qrevo_s_status",
+         "entity": "vacuum.roborock_qrevo_s", "cleaning": "binary_sensor.roborock_qrevo_s_cleaning",
+         "status": "sensor.roborock_qrevo_s_status",
          "battery": "sensor.roborock_qrevo_s_battery", "progress": "sensor.roborock_qrevo_s_cleaning_progress"},
     ],
 }
@@ -184,7 +180,7 @@ APPLIANCES = {
 def dashboard():
     wallpaper = {"type": "custom:bing-wallpaper-card", "mkt": "de-DE", "resolution": "1080x1920",
                  "count": 8, "rotate_minutes": 10, "dim": 0.2, "view_layout": {"grid-area": "clock"}}
-    rooms = {"type": "custom:tablet-rooms-card", "timeout_seconds": ROOM_TIMEOUT_S, "columns": 2,
+    rooms = {"type": "custom:tablet-rooms-card", "timeout_seconds": ROOM_TIMEOUT_S, "columns": 3,
              "rooms": [room_config(r) for r in ROOMS], "view_layout": {"grid-area": "rooms"},
              "card_mod": {"style": "ha-card { --tablet-rooms-padding: 4px 0 18px; }"}}
     return {

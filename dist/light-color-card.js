@@ -59,8 +59,10 @@ export class LightColorCard extends HTMLElement {
     content.innerHTML = `
       ${many ? `<div class="chips">${["all", ...this._config.entities]
         .map((e) => `<button class="chip" data-e="${esc(e)}"></button>`).join("")}</div>` : ""}
-      <div class="wheel"><div class="disc"></div><div class="dot"></div></div>
-      <div class="temp"><div class="knob"></div></div>`;
+      <div class="pick">
+        <div class="wheel"><div class="disc"></div><div class="dot"></div></div>
+        <div class="temp"><div class="knob"></div></div>
+      </div>`;
     content.querySelectorAll(".chip").forEach((b) =>
       b.addEventListener("click", () => {
         this._selected = b.dataset.e;
@@ -83,7 +85,7 @@ export class LightColorCard extends HTMLElement {
     const temp = content.querySelector(".temp");
     const pickTemp = (ev, commit) => {
       const rect = temp.getBoundingClientRect();
-      const t = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width));
+      const t = Math.max(0, Math.min(1, (rect.bottom - ev.clientY) / rect.height));
       this._dragging = !commit;
       this._tempPreview = t;
       this._placeKnob();
@@ -125,26 +127,27 @@ export class LightColorCard extends HTMLElement {
       t = (st.attributes.color_temp_kelvin - min) / (max - min);
     }
     knob.style.display = t === undefined ? "none" : "block";
-    if (t !== undefined) knob.style.left = `${t * 100}%`;
+    if (t !== undefined) knob.style.top = `${(1 - t) * 100}%`;
   }
 
   _render() {
     if (!this.shadowRoot || !this._config || !this._hass) return;
     const content = ensureShell(this.shadowRoot, `
       :host { display: block; height: 100%; }
-      ha-card { height: 100%; box-sizing: border-box; padding: 18px; background: none; border: none; box-shadow: none; }
-      .content { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
-      .chips { flex: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-      .chip { font: inherit; font-size: 17px; color: #fff; border: none; border-radius: 999px; padding: 8px 16px;
-        background: rgba(255,255,255,0.10); cursor: pointer; }
+      ha-card { height: 100%; box-sizing: border-box; padding: 8px 4px 4px; background: none; border: none; box-shadow: none; }
+      .content { height: 100%; display: flex; flex-direction: column; gap: 12px; }
+      .chips { flex: none; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+      .chip { flex: none; font: inherit; font-size: 16px; color: #fff; border: none; border-radius: 999px; padding: 8px 14px;
+        background: rgba(255,255,255,0.10); cursor: pointer; white-space: nowrap; }
+      .pick { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; gap: 18px; }
       .chip.on { background: #fff; color: #161830; font-weight: 600; }
-      .wheel { position: relative; flex: 1 1 0; min-height: 0; max-height: 320px; aspect-ratio: 1; max-width: 100%; touch-action: none; }
+      .wheel { position: relative; height: 100%; max-height: 300px; aspect-ratio: 1; max-width: calc(100% - 62px); touch-action: none; }
       .disc { width: 100%; height: 100%; border-radius: 50%; background: ${WHEEL_BG}; }
       .dot { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%;
         border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.5); pointer-events: none; }
-      .temp { position: relative; flex: none; width: min(100%, 320px); height: 44px; border-radius: 22px; touch-action: none;
-        background: linear-gradient(90deg, #ffa448, #fff1dc 55%, #cfe2ff); }
-      .knob { position: absolute; top: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%;
+      .temp { position: relative; flex: none; width: 44px; height: 100%; max-height: 300px; border-radius: 22px; touch-action: none;
+        background: linear-gradient(0deg, #ffa448, #fff1dc 55%, #cfe2ff); }
+      .knob { position: absolute; left: 50%; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%;
         border: 3px solid #fff; background: transparent; box-shadow: 0 2px 8px rgba(0,0,0,.5); pointer-events: none; }
       .temp.off { display: none; }
     `);
